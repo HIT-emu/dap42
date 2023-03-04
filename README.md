@@ -4,15 +4,13 @@ The dap42 project is an open-source firmware and [hardware design](https://githu
 This project is stable - it has been proven in the field by a few dozen users and all core functionality has been tested.
 
 ## Current features
-### Unwired Devices
+### LittleThings.pro
 
-UMDK-EMB target was added to support UMDK-ENERGYMON v.1.01 board by Unwired Devices. `make UMDK-EMB` to build it.
+EM-LITE target was added to support Energymon Lite V1 board by LittleThings. `make EM-LITE` to build it.
 
 Major change is the ability to control high dynamic range current shunt sensor and perform high-speed current measurements with 3 us sampling period and 0.1uA...3A range.
 
 Measurement results averaged over 10 ms ... 1000 ms periods and reported to serial console. Also, simple commands were implemented on the same console to control board parameters.
-
-UMDK-RF target was added to support UMDK-RF v.1.07 board by Unwired Devices. `make UMDK-RF` to build it.
 
 Changes:
 * BOOT0 pin disabled, power up board with BOOT0 tied to GND to enter STM32 DFU
