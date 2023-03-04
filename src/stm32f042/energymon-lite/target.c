@@ -1074,7 +1074,7 @@ void user_activity(void) {
         disable_power();
     }
     
-    char cur_str[30] = { 0 };
+    char cur_str[60] = { 0 };
     
     if (cmd_int & CMD_INT_CONSOLEOUT) {
 #if defined(STACK_CANARY_WORD) && ENABLE_DEBUG
