@@ -90,7 +90,7 @@ static void adc_setup_common(void) {
 	adc_calibrate(ADC1);
 	adc_set_operation_mode(ADC1, ADC_MODE_SCAN);
     adc_disable_discontinuous_mode(ADC1);
-	adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_VAL(2), ADC_CFGR1_EXTEN_RISING_EDGE);
+	adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_TIM2_TRGO, ADC_CFGR1_EXTEN_RISING_EDGE);
 	adc_set_right_aligned(ADC1);
 	adc_disable_temperature_sensor();
     
@@ -106,7 +106,7 @@ static void adc_measure_current(void) {
     adc_setup_common();
     
     /* Measurements to be triggered by TIM2 */
-    adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_VAL(2), ADC_CFGR1_EXTEN_RISING_EDGE);
+    adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_TIM2_TRGO, ADC_CFGR1_EXTEN_RISING_EDGE);
     
     /* No VREF needed */
     adc_disable_vrefint();

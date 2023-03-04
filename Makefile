@@ -16,21 +16,21 @@
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
-Q			  := @
-NULL		   := 2>/dev/null
-MAKE		   := $(MAKE) --no-print-directory
+Q              := @
+NULL           := 2>/dev/null
+MAKE           := $(MAKE) --no-print-directory
 endif
 export V
 
-FORMATS ?= hex dfu
+BUILD_DIR      ?= ./build
 
-all: DAP42.bin UMDK-EMB.bin UMDK-RF.bin DAP42DC.bin KITCHEN42.bin \
+all: DAP42.bin DAP42DC.bin KITCHEN42.bin \
      DAP103.bin DAP103-DFU.bin \
      DAP103-BLUEPILL.bin DAP103-BLUEPILL-DFU.bin \
      DAP103-NUCLEO-STBOOT.bin \
      BRAINv3.3.bin \
-     DAP42K6U.bin
-
+     DAP42K6U.bin \
+     UMDK-EMB.bin UMDK-RF.bin
 clean:
 	$(Q)$(RM) $(BUILD_DIR)/*.bin
 	$(Q)$(MAKE) -C src/ clean
@@ -41,51 +41,48 @@ clean:
 $(BUILD_DIR):
 	$(Q)mkdir -p $(BUILD_DIR)
 	
-UMDK-RF: | $(BUILD_DIR)
+UMDK-RF.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=UMDK-RF -C src/ clean
-	$(Q)$(MAKE) TARGET=UMDK-RF -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=UMDK-RF -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 	
-UMDK-EMB: | $(BUILD_DIR)
+UMDK-EMB.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
-	$(Q)$(MAKE) TARGET=$(@) -C src/ clean
-	$(Q)$(MAKE) TARGET=$(@) -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=UMDK-EMB -C src/ clean
+	$(Q)$(MAKE) TARGET=UMDK-EMB -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP42: | $(BUILD_DIR)
+DAP42.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F042 -C src/ clean
-	$(Q)$(MAKE) TARGET=STM32F042 -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=STM32F042 -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP42DC: | $(BUILD_DIR)
+DAP42DC.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=DAP42DC -C src/ clean
-	$(Q)$(MAKE) TARGET=DAP42DC -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=DAP42DC -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-KITCHEN42: | $(BUILD_DIR)
+KITCHEN42.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=KITCHEN42 -C src/ clean
-	$(Q)$(MAKE) TARGET=KITCHEN42 -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=KITCHEN42 -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103: | $(BUILD_DIR)
+DAP103.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103 -C src/ clean
-	$(Q)$(MAKE) TARGET=STM32F103 -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=STM32F103 -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103-DFU: | $(BUILD_DIR)
+DAP103-DFU.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103-DFUBOOT -C src/ clean
-	$(Q)$(MAKE) TARGET=STM32F103-DFUBOOT -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=STM32F103-DFUBOOT -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-<<<<<<< HEAD
-BRAINv3.3: | $(BUILD_DIR)
-=======
 DAP103-BLUEPILL.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL -C src/ clean
@@ -99,25 +96,19 @@ DAP103-BLUEPILL-DFU.bin: | $(BUILD_DIR)
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
 BRAINv3.3.bin: | $(BUILD_DIR)
->>>>>>> master
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/ clean
-	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP42K6U: | $(BUILD_DIR)
+DAP42K6U.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=DAP42K6U -C src/ clean
-	$(Q)$(MAKE) TARGET=DAP42K6U -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
+	$(Q)$(MAKE) TARGET=DAP42K6U -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103-NUCLEO-STBOOT: | $(BUILD_DIR)
+DAP103-NUCLEO-STBOOT.bin: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STLINKV2-1-STBOOT -C src/ clean
-	$(Q)$(MAKE) TARGET=STLINKV2-1-STBOOT -C src/ $(FORMATS)
-	$(Q)$(MAKE) TARGET=$(@) copy
-
-copy:
-	$(Q)cp src/DAP42.hex $(BUILD_DIR)/$(TARGET).hex
-	$(Q)cp src/DAP42.dfu $(BUILD_DIR)/$(TARGET).dfu
-	$(Q)$(MAKE) TARGET=$(TARGET) -C src/ size
+	$(Q)$(MAKE) TARGET=STLINKV2-1-STBOOT -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)

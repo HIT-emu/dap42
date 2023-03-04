@@ -252,14 +252,7 @@ static uint32_t DAP_Disconnect(uint8_t *response) {
   PORT_OFF();
 
   *response = DAP_OK;
-<<<<<<< HEAD
-  
-  DAP_On_Disconnect();
-  
-  return (1);
-=======
   return (1U);
->>>>>>> master
 }
 
 

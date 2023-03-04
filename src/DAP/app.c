@@ -26,7 +26,8 @@
 #include "USB/hid.h"
 #include "DAP/app.h"
 
-static uint8_t packet_buffers[DAP_PACKET_SIZE][DAP_PACKET_QUEUE_SIZE];
+static uint8_t request_buffers[DAP_PACKET_SIZE][DAP_PACKET_QUEUE_SIZE];
+static uint8_t response_buffers[DAP_PACKET_SIZE][DAP_PACKET_QUEUE_SIZE];
 
 static uint8_t inbox_tail;
 static uint8_t process_head;
@@ -35,7 +36,7 @@ static uint8_t outbox_head;
 static GenericCallback dfu_request_callback = NULL;
 
 static bool on_receive_report(uint8_t* data, uint16_t len) {
-    memcpy((void*)packet_buffers[inbox_tail], (const void*)data, len);
+    memcpy((void*)request_buffers[inbox_tail], (const void*)data, len);
     inbox_tail = (inbox_tail + 1) % DAP_PACKET_QUEUE_SIZE;
 
     return ((inbox_tail + 1) % DAP_PACKET_QUEUE_SIZE) != outbox_head;
@@ -43,7 +44,7 @@ static bool on_receive_report(uint8_t* data, uint16_t len) {
 
 static void on_send_report(uint8_t* data, uint16_t* len) {
     if (outbox_head != process_head) {
-        memcpy((void*)data, (const void*)packet_buffers[outbox_head],
+        memcpy((void*)data, (const void*)response_buffers[outbox_head],
                DAP_PACKET_SIZE);
         *len = DAP_PACKET_SIZE;
 
@@ -93,7 +94,7 @@ bool DAP_app_update(void) {
     }
 
     if (outbox_head != process_head) {
-        if (hid_send_report(packet_buffers[outbox_head], DAP_PACKET_SIZE)) {
+        if (hid_send_report(response_buffers[outbox_head], DAP_PACKET_SIZE)) {
             outbox_head = (outbox_head + 1) % DAP_PACKET_QUEUE_SIZE;
         }
         active = true;

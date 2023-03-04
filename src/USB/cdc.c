@@ -167,7 +167,11 @@ cdc_control_class_request(usbd_device *usbd_dev,
             break;
         }
         case USB_CDC_REQ_SEND_BREAK: {
+            #if defined(STM32F1)
+            USART_CR1(CONSOLE_USART) |= USART_CR1_SBK;
+            #else
             USART_RQR(CONSOLE_USART) |= USART_RQR_SBKRQ;
+            #endif
 
             status = USBD_REQ_HANDLED;
             break;
