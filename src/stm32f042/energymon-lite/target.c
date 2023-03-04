@@ -606,6 +606,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_reset = "reset - reset target";
     const char *help_boot = "boot - switch target to bootloader mode";
     const char *help_dap = "dap <on|off> - stop current measurements when DAP is active";
+    const char *help_ver = "version - print firmware version";
 
     int cmdlen;
 
@@ -618,7 +619,7 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_display);
         vcdc_println(help_maxreset);
         vcdc_println(help_calibrate);
-
+        vcdc_println(help_ver);
         vcdc_println(help_baudrate);
         vcdc_println(help_dap);
     }
@@ -757,7 +758,13 @@ static void console_command_parser(uint8_t *usb_command) {
             current_report_counter = 1;
         } else {
             vcdc_println(help_calibrate);
+            vcdc_send_buffer_space();
         }
+    }
+    else
+    if (memcmp((char *)usb_command, "version", cmdlen = strlen("version")) == 0) {
+        vcdc_println(BANNER_STR3);
+        vcdc_send_buffer_space();
     }
 }
 
