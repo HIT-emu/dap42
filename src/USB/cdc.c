@@ -53,7 +53,7 @@ const struct cdc_acm_functional_descriptors cdc_acm_functional_descriptors = {
         .bFunctionLength = sizeof(struct usb_cdc_acm_descriptor),
         .bDescriptorType = CS_INTERFACE,
         .bDescriptorSubtype = USB_CDC_TYPE_ACM,
-        .bmCapabilities = (1 << 1),
+        .bmCapabilities = (1 << 1) | (1 << 2), // LINE_REQUESTS | SENDBREAK_REQUESTS
     },
     .cdc_union = {
         .bFunctionLength = sizeof(struct usb_cdc_union_descriptor),
@@ -164,6 +164,12 @@ cdc_control_class_request(usbd_device *usbd_dev,
             } else {
                 status = USBD_REQ_NOTSUPP;
             }
+            break;
+        }
+        case USB_CDC_REQ_SEND_BREAK: {
+            USART_RQR(CONSOLE_USART) |= USART_RQR_SBKRQ;
+
+            status = USBD_REQ_HANDLED;
             break;
         }
         default: {

@@ -21,7 +21,8 @@
 
 #include "cdc.h"
 
-#define USB_CDC_REQ_GET_LINE_CODING 0xA0
+#define USB_CDC_REQ_GET_LINE_CODING 0x21
+#define USB_CDC_REQ_SEND_BREAK      0x23
 
 struct cdc_acm_functional_descriptors {
     struct usb_cdc_header_descriptor header;
