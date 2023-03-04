@@ -20,15 +20,9 @@ ifeq ($(TARGET),STM32F042)
 	LDSCRIPT           ?= ./stm32f042/stm32f042x6.ld
 	ARCH                = STM32F0
 endif
-ifeq ($(TARGET),UMDK-RF)
+ifeq ($(TARGET),EM-LITE)
 	TARGET_COMMON_DIR  := ./stm32f042
-	TARGET_SPEC_DIR    := ./stm32f042/umdk-rf
-	LDSCRIPT           ?= ./stm32f042/stm32f042x6.ld
-	ARCH                = STM32F0
-endif
-ifeq ($(TARGET),UMDK-EMB)
-	TARGET_COMMON_DIR  := ./stm32f042
-	TARGET_SPEC_DIR    := ./stm32f042/umdk-emb
+	TARGET_SPEC_DIR    := ./stm32f042/energymon-lite
 	LDSCRIPT           ?= ./stm32f042/stm32f042x6.ld
 	ARCH                = STM32F0
 endif

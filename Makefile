@@ -22,15 +22,17 @@ MAKE           := $(MAKE) --no-print-directory
 endif
 export V
 
+FORMATS ?= hex dfu
+
 BUILD_DIR      ?= ./build
 
-all: DAP42.bin DAP42DC.bin KITCHEN42.bin \
-     DAP103.bin DAP103-DFU.bin \
-     DAP103-BLUEPILL.bin DAP103-BLUEPILL-DFU.bin \
-     DAP103-NUCLEO-STBOOT.bin \
-     BRAINv3.3.bin \
-     DAP42K6U.bin \
-     UMDK-EMB.bin UMDK-RF.bin
+all: DAP42 DAP42DC KITCHEN42 \
+     DAP103 DAP103-DFU \
+     DAP103-BLUEPILL DAP103-BLUEPILL-DFU \
+     DAP103-NUCLEO-STBOOT \
+     BRAINv3.3 \
+     DAP42K6U \
+     EM-LITE
 clean:
 	$(Q)$(RM) $(BUILD_DIR)/*.bin
 	$(Q)$(MAKE) -C src/ clean
@@ -41,74 +43,73 @@ clean:
 $(BUILD_DIR):
 	$(Q)mkdir -p $(BUILD_DIR)
 	
-UMDK-RF.bin: | $(BUILD_DIR)
+EM-LITE: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
-	$(Q)$(MAKE) TARGET=UMDK-RF -C src/ clean
-	$(Q)$(MAKE) TARGET=UMDK-RF -C src/
-	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
-	
-UMDK-EMB.bin: | $(BUILD_DIR)
-	@printf "  BUILD $(@)\n"
-	$(Q)$(MAKE) TARGET=UMDK-EMB -C src/ clean
-	$(Q)$(MAKE) TARGET=UMDK-EMB -C src/
-	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
+	$(Q)$(MAKE) TARGET=EM-LITE -C src/ clean
+	$(Q)$(MAKE) TARGET=EM-LITE -C src/ $(FORMATS)
+	$(Q)$(MAKE) TARGET=EM-LITE copy
 
-DAP42.bin: | $(BUILD_DIR)
+DAP42: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F042 -C src/ clean
 	$(Q)$(MAKE) TARGET=STM32F042 -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP42DC.bin: | $(BUILD_DIR)
+DAP42DC: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=DAP42DC -C src/ clean
 	$(Q)$(MAKE) TARGET=DAP42DC -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-KITCHEN42.bin: | $(BUILD_DIR)
+KITCHEN42: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=KITCHEN42 -C src/ clean
 	$(Q)$(MAKE) TARGET=KITCHEN42 -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103.bin: | $(BUILD_DIR)
+DAP103: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103 -C src/ clean
 	$(Q)$(MAKE) TARGET=STM32F103 -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103-DFU.bin: | $(BUILD_DIR)
+DAP103-DFU: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103-DFUBOOT -C src/ clean
 	$(Q)$(MAKE) TARGET=STM32F103-DFUBOOT -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103-BLUEPILL.bin: | $(BUILD_DIR)
+DAP103-BLUEPILL: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL -C src/ clean
 	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103-BLUEPILL-DFU.bin: | $(BUILD_DIR)
+DAP103-BLUEPILL-DFU: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL-DFUBOOT -C src/ clean
 	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL-DFUBOOT -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-BRAINv3.3.bin: | $(BUILD_DIR)
+BRAINv3.3: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/ clean
 	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP42K6U.bin: | $(BUILD_DIR)
+DAP42K6U: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=DAP42K6U -C src/ clean
 	$(Q)$(MAKE) TARGET=DAP42K6U -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
 
-DAP103-NUCLEO-STBOOT.bin: | $(BUILD_DIR)
+DAP103-NUCLEO-STBOOT: | $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=STLINKV2-1-STBOOT -C src/ clean
 	$(Q)$(MAKE) TARGET=STLINKV2-1-STBOOT -C src/
 	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
+
+copy:
+	$(Q)cp src/DAP42.hex $(BUILD_DIR)/$(TARGET).hex
+	$(Q)cp src/DAP42.dfu $(BUILD_DIR)/$(TARGET).dfu
+	$(Q)$(MAKE) TARGET=$(TARGET) -C src/ size
