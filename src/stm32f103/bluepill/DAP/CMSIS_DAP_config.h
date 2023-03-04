@@ -50,7 +50,7 @@ This information includes:
 
 /// Processor Clock of the Cortex-M MCU used in the Debug Unit.
 /// This value is used to calculate the SWD/JTAG clock speed.
-#define CPU_CLOCK               48000000U      ///< Specifies the CPU Clock in Hz.
+#define CPU_CLOCK               72000000U      ///< Specifies the CPU Clock in Hz.
 
 /// Number of processor cycles for I/O Port write operations.
 /// This value is used to calculate the SWD/JTAG clock speed that is generated with I/O
@@ -159,20 +159,20 @@ static inline uint8_t DAP_GetSerNumString (char *str) {
 
 ///@}
 
-#define SWCLK_GPIO_PORT         GPIOA
-#define SWCLK_GPIO_PIN          GPIO1
-#define SWDIO_GPIO_PORT         GPIOA
-#define SWDIO_GPIO_PIN          GPIO0
-#define nRESET_GPIO_PORT        GPIOA
-#define nRESET_GPIO_PIN         GPIO4
+#define SWCLK_GPIO_PORT         GPIOB
+#define SWCLK_GPIO_PIN          GPIO13
+#define SWDIO_GPIO_PORT         GPIOB
+#define SWDIO_GPIO_PIN          GPIO14
+#define nRESET_GPIO_PORT        GPIOB
+#define nRESET_GPIO_PIN         GPIO0
 
-#define LED_CON_GPIO_PORT       GPIOA
-#define LED_CON_GPIO_PIN        GPIO5
-#define LED_RUN_GPIO_PORT       GPIOA
-#define LED_RUN_GPIO_PIN        GPIO6
-#define LED_ACT_GPIO_PORT       GPIOA
-#define LED_ACT_GPIO_PIN        GPIO7
+#define LED_CON_GPIO_PORT       GPIOC
+#define LED_CON_GPIO_PIN        GPIO13
+#define LED_RUN_GPIO_PORT       GPIOC
+#define LED_RUN_GPIO_PIN        GPIO13
+#define LED_ACT_GPIO_PORT       GPIOC
+#define LED_ACT_GPIO_PIN        GPIO13
 
-#define SWDIO_GPIO_PIN_NUM      0
+#define SWDIO_GPIO_PIN_NUM      14
 
 #endif /* __DAP_CONFIG_H__ */

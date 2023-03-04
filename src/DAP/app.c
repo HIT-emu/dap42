@@ -53,7 +53,7 @@ static void on_send_report(uint8_t* data, uint16_t* len) {
     }
 }
 
-uint32_t DAP_ProcessVendorCommand(uint8_t* request, uint8_t* response) {
+uint32_t DAP_ProcessVendorCommand(const uint8_t* request, uint8_t* response) {
     if (request[0] == ID_DAP_Vendor31) {
         if (request[1] == 'D' && request[2] == 'F' && request[3] == 'U') {
             response[0] = request[0];
@@ -64,16 +64,16 @@ uint32_t DAP_ProcessVendorCommand(uint8_t* request, uint8_t* response) {
             } else {
                 response[1] = DAP_ERROR;
             }
-            return 2;
+            return ((4U << 16) | 2U);
         } else {
             response[0] = request[0];
             response[1] = DAP_ERROR;
-            return 2;
+            return ((4U << 16) | 2U);
         }
     }
 
     response[0] = ID_DAP_Invalid;
-    return 1;
+    return ((1U << 16) | 1U);
 }
 
 static void DAP_app_reset(void) {
@@ -85,12 +85,9 @@ bool DAP_app_update(void) {
     bool active = false;
 
     if (process_head != inbox_tail) {
-        uint8_t response_buffer[DAP_PACKET_SIZE] = {};
-        DAP_ProcessCommand(packet_buffers[process_head],
-                           response_buffer);
-        // Copy the response back into the slot we used for the request
-        memcpy(packet_buffers[process_head], response_buffer, DAP_PACKET_SIZE);
-        // Mark this slot as pending to send and move onto the next item
+        memset(response_buffers[process_head], 0, DAP_PACKET_SIZE);
+        DAP_ExecuteCommand(request_buffers[process_head],
+                           response_buffers[process_head]);
         process_head = (process_head + 1) % DAP_PACKET_QUEUE_SIZE;
         active = true;
     }

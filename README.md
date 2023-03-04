@@ -33,7 +33,21 @@ To flash via another debugger, use `make flash`.
 For detailed flashing instructions, see [FLASHING.md](./FLASHING.md)
 
 ### STM32F103
-The dap42 firmware can also target the STM32F103 chip. The CDC UART is connected to `PB11` (the `SWIM` pin on certain STLink/v2 knockoff designs) as an RX-only input.
+The dap42 firmware can also target the STM32F103 chip.
+
+To build firmware for STLink/v2 knockoff designs, use the `STM32F103` target or `STM32F103-DFUBOOT` target when using the [dapboot](https://github.com/devanlai/dapboot) bootloader. The CDC UART is connected to the `SWIM` pin (`PB11`) as an RX-only input.
+
+To build firmware for the "bluepill" dev board, use the `STM32F103-BLUEPILL` or `STM32F103-BLUEPILL-DFUBOOT` targets.
+
+The pin mapping is as follows:
+
+| Signal | Pin  |
+| ------ | ---- |
+| SWDIO  | PB14 |
+| SWCLK  | PB13 |
+| RESET  | PB0  |
+| TX     | PA2  |
+| RX     | PA3  |
 
 ## Usage
 ### OpenOCD
@@ -45,11 +59,15 @@ In general, the probe can be used with OpenOCD just by specifying the cmsis-dap 
 
 Example OpenOCD configurations can be found under the [openocd/](openocd/) folder.
 
-### LPCXpresso
-As of LPCXpresso 8.0.0, the default probe detection rules will not auto-discover generic CMSIS-DAP probes.
-To use the dap42 probe with LPCXpresso, you can modify the detection rules by editing `lpcxpresso/bin/Scripts/probetable.csv` in your LPCXpresso installation.
+### MCUXpresso
+The default probe detection rules used by MCUXpresso (formerly LPCXpresso) will not auto-discover generic CMSIS-DAP probes.
+To use the dap42 probe with MCUXpresso, you can modify the detection rules by editing `probetable.csv` in your MCUXpresso installation.
 
-Add the following line to `probetable.csv`:
+For MCUXpresso version 11.4 or newer, edit `probetable.csv` under `ide/plugins/com.mcuxpresso.tools.bin.<...>/binaries/Scripts`:
+
+    0x1209, 0xDA42, 64, 1, 0, 0, 0, "", 0x0000, -1, -1
+
+In older versions, the CSV format has one fewer entry at the end:
 
     0x1209, 0xDA42, 64, 1, 0, 0, 0, "", 0x0000, -1
 

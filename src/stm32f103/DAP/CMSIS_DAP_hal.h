@@ -49,6 +49,20 @@
 
 #include <libopencm3/stm32/gpio.h>
 #include "DAP/CMSIS_DAP_config.h"
+#include "tick.h"
+#include <libopencm3/cm3/systick.h>
+#include <libopencmsis/core_cm3.h>
+
+
+/*
+ * TIMESTAMP SUPPORT
+ */
+
+// Get current timestamp value, in milliseconds:
+// Use SYSTICK value and timer ticks, assume 1ms counter.
+static __inline uint32_t TIMESTAMP_GET (void) {
+  return get_ticks();
+}
 
 /*
 SWD functionality

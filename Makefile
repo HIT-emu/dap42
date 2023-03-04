@@ -24,13 +24,13 @@ export V
 
 FORMATS ?= hex dfu
 
-BUILD_DIR	  ?= ./build
+all: DAP42.bin UMDK-EMB.bin UMDK-RF.bin DAP42DC.bin KITCHEN42.bin \
+     DAP103.bin DAP103-DFU.bin \
+     DAP103-BLUEPILL.bin DAP103-BLUEPILL-DFU.bin \
+     DAP103-NUCLEO-STBOOT.bin \
+     BRAINv3.3.bin \
+     DAP42K6U.bin
 
-all: DAP42 UMDK-EMB UMDK-RF DAP42DC KITCHEN42 \
-	 DAP103 DAP103-DFU \
-	 DAP103-NUCLEO-STBOOT \
-	 BRAINv3.3 \
-	 DAP42K6U
 clean:
 	$(Q)$(RM) $(BUILD_DIR)/*.bin
 	$(Q)$(MAKE) -C src/ clean
@@ -83,7 +83,23 @@ DAP103-DFU: | $(BUILD_DIR)
 	$(Q)$(MAKE) TARGET=STM32F103-DFUBOOT -C src/ $(FORMATS)
 	$(Q)$(MAKE) TARGET=$(@) copy
 
+<<<<<<< HEAD
 BRAINv3.3: | $(BUILD_DIR)
+=======
+DAP103-BLUEPILL.bin: | $(BUILD_DIR)
+	@printf "  BUILD $(@)\n"
+	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL -C src/ clean
+	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
+
+DAP103-BLUEPILL-DFU.bin: | $(BUILD_DIR)
+	@printf "  BUILD $(@)\n"
+	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL-DFUBOOT -C src/ clean
+	$(Q)$(MAKE) TARGET=STM32F103-BLUEPILL-DFUBOOT -C src/
+	$(Q)cp src/DAP42.bin $(BUILD_DIR)/$(@)
+
+BRAINv3.3.bin: | $(BUILD_DIR)
+>>>>>>> master
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/ clean
 	$(Q)$(MAKE) TARGET=BRAINV3.3 -C src/ $(FORMATS)
