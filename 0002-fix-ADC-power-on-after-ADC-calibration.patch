@@ -1,0 +1,33 @@
+From ce21388fb88319844d8c7ec7d70cd454294dd926 Mon Sep 17 00:00:00 2001
+From: Oleg Artamonov <oleg@unwds.com>
+Date: Sun, 16 Jun 2019 20:22:20 +0300
+Subject: [PATCH] lib/stm32: fix ADC power on after ADC calibration on F0
+ devices
+
+---
+ lib/stm32/common/adc_common_v2.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git libopencm3/lib/stm32/common/adc_common_v2.c b/lib/stm32/common/adc_common_v2.c
+index fb22d273..d1e4f4f7 100644
+--- libopencm3/lib/stm32/common/adc_common_v2.c
++++ libopencm3/lib/stm32/common/adc_common_v2.c
+@@ -93,7 +93,14 @@ bool adc_is_power_on(uint32_t adc)
+  */
+ void adc_power_on(uint32_t adc)
+ {
+-	adc_power_on_async(adc);
++#if defined(STM32F0)
++    /* Workaround for STM32F0x2 Device Errata (see ES0243 2.4.2) */
++    do {
++        adc_power_on_async(adc);
++    }
++#else
++    adc_power_on_async(adc);
++#endif
+ 	while (!adc_is_power_on(adc));
+ }
+ 
+-- 
+2.17.1
+
