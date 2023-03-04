@@ -1,0 +1,29 @@
+--- libopencm3/include/libopencm3/cm3/common.h	2023-03-04 16:17:38.383266600 +0300
++++ libopencm3/include/libopencm3/cm3/common.h.new	2023-03-04 16:17:45.704134800 +0300
+@@ -63,6 +63,9 @@
+ #include <stdint.h>
+ #include <stdbool.h>
+ 
++/* Used for stack size calculation */
++#define STACK_CANARY_WORD (0xCACACACAUL)
++
+ /* Generic memory-mapped I/O accessor functions */
+ #define MMIO8(addr)		(*(volatile uint8_t *)(addr))
+ #define MMIO16(addr)		(*(volatile uint16_t *)(addr))
+
+--- libopencm3/lib/cm3/vector.c	2023-03-04 16:17:09.641831400 +0300
++++ libopencm3/lib/cm3/vector.c.new	2023-03-04 16:17:22.045323000 +0300
+@@ -70,6 +70,13 @@
+     while (dest < top) {
+         *(dest++) = STACK_CANARY_WORD;
+     }
++    
++    volatile unsigned *top;
++    __asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
++    dest = &_ebss;
++    while (dest < top) {
++        *(dest++) = STACK_CANARY_WORD;
++    }
+ 
+ 	for (src = &_data_loadaddr, dest = &_data;
+ 		dest < &_edata;
