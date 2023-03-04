@@ -107,7 +107,7 @@ static uint32_t blink_counter = 0;
 static uint16_t target_power_failure = 0;
 
 static volatile uint32_t adc_voltage_raw = 0;
-static volatile uint32_t seconds_passed = 0;
+static volatile uint32_t msecs_passed = 0;
 static bool display_counter = false;
 static uint32_t display_mode = 0;
 static uint32_t vdda = 0;
@@ -602,8 +602,6 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_maxreset = "maxreset - reset maximum current";
     const char *help_display = "display <N> - set display mode by number";
     const char *help_calibrate = "calibrate <mV> - calibrate voltage divider";
-    const char *help_show = "show <SEC|VOL|CUR|AHR|WHR|all> - report values";
-    const char *help_hide = "hide <SEC|VOL|CUR|AHR|WHR|all> - don't report values";
     const char *help_baudrate = "baudrate <bps> - set target UART baudrate";
     const char *help_reset = "reset - reset target";
     const char *help_boot = "boot - switch target to bootloader mode";
@@ -620,8 +618,7 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_display);
         vcdc_println(help_maxreset);
         vcdc_println(help_calibrate);
-        vcdc_println(help_show);
-        vcdc_println(help_hide);
+
         vcdc_println(help_baudrate);
         vcdc_println(help_dap);
     }
@@ -760,100 +757,6 @@ static void console_command_parser(uint8_t *usb_command) {
             current_report_counter = 1;
         } else {
             vcdc_println(help_calibrate);
-        }
-    }
-    else
-    if (memcmp((char *)usb_command, "show ", cmdlen = strlen("show ")) == 0) {
-        if (memcmp((char *)&usb_command[cmdlen], "all", 3) == 0) {
-            emb_settings.show = 0xFF;
-            save_settings();
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "SEC", 3) == 0) {
-            if (!(emb_settings.show & SHOW_SECONDS)) {
-                emb_settings.show |= SHOW_SECONDS;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "VOL", 3) == 0) {
-            if (!(emb_settings.show & SHOW_VOLTAGE)) {
-                emb_settings.show |= SHOW_VOLTAGE;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "CUR", 3) == 0) {
-            if (!(emb_settings.show & SHOW_CURRENT)) {
-                emb_settings.show |= SHOW_CURRENT;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "AHR", 3) == 0) {
-            if (!(emb_settings.show & SHOW_AMPEREHOURS)) {
-                emb_settings.show |= SHOW_AMPEREHOURS;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "WHR", 3) == 0) {
-            if (!(emb_settings.show & SHOW_WATTHOURS)) {
-                emb_settings.show |= SHOW_WATTHOURS;
-                save_settings();
-            }
-        }
-        else
-        {
-            vcdc_println(help_show);
-            vcdc_send_buffer_space();
-        }
-    }
-    else
-    if (memcmp((char *)usb_command, "hide ", cmdlen = strlen("hide ")) == 0) {
-        if (memcmp((char *)&usb_command[cmdlen], "all", 3) == 0) {
-            emb_settings.show = 0;
-            save_settings();
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "SEC", 3) == 0) {
-            if (emb_settings.show & SHOW_SECONDS) {
-                emb_settings.show &= ~SHOW_SECONDS;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "VOL", 3) == 0) {
-            if (emb_settings.show & SHOW_VOLTAGE) {
-                emb_settings.show &= ~SHOW_VOLTAGE;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "CUR", 3) == 0) {
-            if (emb_settings.show & SHOW_CURRENT) {
-                emb_settings.show &= ~SHOW_CURRENT;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "AHR", 3) == 0) {
-            if (emb_settings.show & SHOW_AMPEREHOURS) {
-                emb_settings.show &= ~SHOW_AMPEREHOURS;
-                save_settings();
-            }
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "WHR", 3) == 0) {
-            if (emb_settings.show & SHOW_WATTHOURS) {
-                emb_settings.show &= ~SHOW_WATTHOURS;
-                save_settings();
-            }
-        }
-        else
-        {
-            vcdc_println(help_hide);
-            vcdc_send_buffer_space();
         }
     }
 }
@@ -1100,7 +1003,7 @@ void systick_activity(void)
                 /* Reset accumulated energy */
                 energy_accumultated_uah = 0;
                 energy_accumultated_uwh = 0;
-                seconds_passed = 0;
+                msecs_passed = 0;
                 /* Enable DC/DC power */
                 gpio_set(POWER_OUTPUT_EN_PORT, POWER_OUTPUT_EN_PIN);
                 /* Enable current shunt (range 2 by default) */
@@ -1131,11 +1034,9 @@ void systick_activity(void)
         button1_counter = 0;
     }
     
-    /* every second */
-    if (current_report_counter && (current_report_counter % 1000 == 0)) {
-        if (target_power_state) {
-            seconds_passed += 1;
-        }
+    /* every millisecond */
+    if (target_power_state) {
+        msecs_passed += 1;
     }
     
     /* every 2 seconds */
@@ -1215,38 +1116,13 @@ void user_activity(void) {
         energy_ahr = energy_accumultated_uah/(3600*10*(1000/emb_settings.period));
         /* convert to microwatt-hours */
         energy_whr = energy_accumultated_uwh/(3600*10*(1000/emb_settings.period));
-
-        if (emb_settings.show & SHOW_SECONDS) {
-            snprintf(cur_str, 30, "[SEC] %lu", seconds_passed);
-            vcdc_println(cur_str);
-        }
-        
-        if (emb_settings.show & SHOW_VOLTAGE) {
-            snprintf(cur_str, 30, "[VOL] %lu", adc_data.voltage);
-            vcdc_println(cur_str);
-        }
-
-        if (emb_settings.show & SHOW_CURRENT) {
-            snprintf(cur_str, 30, "[CUR] %lu.%lu", DIV_ROUND_CLOSEST(current, 10), current % 10);
-#if ENABLE_DEBUG
-            vcdc_print(cur_str);
-
-            snprintf(cur_str, 30, " (%lu - %lu - %lu)", adc_data.current[0], adc_data.current[1], adc_data.current[2]);
-            vcdc_println(cur_str);
-#else
-            vcdc_println(cur_str);
-#endif
-        }
-        
-        if (emb_settings.show & SHOW_AMPEREHOURS) {
-            snprintf(cur_str, 30, "[AHR] %lu", energy_ahr);
-            vcdc_println(cur_str);
-        }
-        
-        if (emb_settings.show & SHOW_WATTHOURS) {
-            snprintf(cur_str, 30, "[WHR] %lu", energy_whr);
-            vcdc_println(cur_str);
-        }
+        snprintf(cur_str, 60, "[DAT] %lu %lu %lu.%lu %lu %lu",
+                               msecs_passed, // milliseconds, 10 symbols max + leading space
+                               adc_data.voltage, // millivolts, 5 symbols max + leading space
+                               DIV_ROUND_CLOSEST(current, 10), current % 10, // microamperes, 9 symbols max + leading space
+                               energy_ahr, // microampere-hours, 10 symbols max + leading space
+                               energy_whr); // microwatt-hours, 10 symbols max + leading space
+        vcdc_println(cur_str);
     }
 
     if (cmd_int & CMD_INT_LCDOUT) {
@@ -1307,7 +1183,7 @@ void user_activity(void) {
             }
         } else {
             /* display time */
-            tic33m_display_time(&tic33m_dev, seconds_passed);
+            tic33m_display_time(&tic33m_dev, msecs_passed/1000);
             display_counter = true;
         }
         update_display = false;
