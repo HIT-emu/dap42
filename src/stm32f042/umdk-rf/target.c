@@ -33,6 +33,9 @@
 #include "DFU/DFU.h"
 #include "USB/vcdc.h"
 
+#include <string.h>
+#include <stdio.h>
+
 /* Reconfigure processor settings */
 void cpu_setup(void) {
 
@@ -63,6 +66,27 @@ static volatile uint32_t adc_result = 0;
 static volatile uint32_t adc_count = 0;
 static uint32_t vdda = 0;
 static uint32_t current_report_counter = 0;
+static volatile uint32_t msecs_passed = 0;
+static uint64_t energy_accumultated_uwh = 0;
+static uint64_t energy_accumultated_uah = 0;
+static uint32_t energy_ahr = 0;
+static uint32_t energy_whr = 0;
+
+/*
+ * Divide positive or negative dividend by positive divisor and round
+ * to closest integer. Result is undefined for negative divisors and
+ * for negative dividends if the divisor variable type is unsigned.
+ */
+#define DIV_ROUND_CLOSEST(x, divisor)(			\
+{							\
+	typeof(x) __x = x;				\
+	typeof(divisor) __d = divisor;			\
+	(((typeof(x))-1) > 0 ||				\
+	 ((typeof(divisor))-1) > 0 || (__x) > 0) ?	\
+		(((__x) + ((__d) / 2)) / (__d)) :	\
+		(((__x) - ((__d) / 2)) / (__d));	\
+}							\
+)
 
 static void disable_power(void) {
     /* Stop ADC */
@@ -83,19 +107,19 @@ static void disable_power(void) {
 
 static void adc_setup_common(void) {
     rcc_periph_clock_enable(RCC_ADC1);
-    
+
     gpio_mode_setup(CURRENT_SENSE_PORT, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, CURRENT_SENSE_PIN);
-    
+
     adc_set_clk_source(ADC1, ADC_CLKSOURCE_ADC);
-	adc_calibrate(ADC1);
-	adc_set_operation_mode(ADC1, ADC_MODE_SCAN);
+    adc_calibrate(ADC1);
+    adc_set_operation_mode(ADC1, ADC_MODE_SCAN);
     adc_disable_discontinuous_mode(ADC1);
-	adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_VAL(2), ADC_CFGR1_EXTEN_RISING_EDGE);
-	adc_set_right_aligned(ADC1);
-	adc_disable_temperature_sensor();
-    
-	adc_set_resolution(ADC1, ADC_RESOLUTION_12BIT);
-	adc_disable_analog_watchdog(ADC1);
+    adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_TIM2_TRGO, ADC_CFGR1_EXTEN_RISING_EDGE);
+    adc_set_right_aligned(ADC1);
+    adc_disable_temperature_sensor();
+
+    adc_set_resolution(ADC1, ADC_RESOLUTION_12BIT);
+    adc_disable_analog_watchdog(ADC1);
 }
 
 static void adc_measure_current(void) {
@@ -106,13 +130,13 @@ static void adc_measure_current(void) {
     adc_setup_common();
     
     /* Measurements to be triggered by TIM2 */
-    adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_VAL(2), ADC_CFGR1_EXTEN_RISING_EDGE);
+    adc_enable_external_trigger_regular(ADC1, ADC_CFGR1_EXTSEL_TIM2_TRGO, ADC_CFGR1_EXTEN_RISING_EDGE);
     
     /* No VREF needed */
     adc_disable_vrefint();
     
     /* 1 us sampling time */
-	adc_set_sample_time_on_all_channels(ADC1, ADC_SMPTIME_013DOT5);
+    adc_set_sample_time_on_all_channels(ADC1, ADC_SMPTIME_013DOT5);
     
     /* Data processed by IRQ */
     adc_enable_eoc_interrupt(ADC1);
@@ -133,7 +157,7 @@ static void adc_measure_vdda(void) {
     adc_setup_common();
     
     /* ~5 us sampling time */
-	adc_set_sample_time_on_all_channels(ADC1, ADC_SMPTIME_071DOT5);
+    adc_set_sample_time_on_all_channels(ADC1, ADC_SMPTIME_071DOT5);
     
     /* ADC will be run once */
     adc_disable_external_trigger_regular(ADC1);
@@ -179,6 +203,10 @@ void adc_comp_isr(void)
 /* ticks every 1 ms */
 void tim3_isr(void)
 {
+    if (target_power_state) {
+      msecs_passed++;
+    }
+  
     /* calculate average ADC value */
     if (ADC_CR(ADC1) & ADC_CR_ADSTART) {
         current_report_counter++;
@@ -186,7 +214,7 @@ void tim3_isr(void)
         /* every 100 ms */
         if (current_report_counter == 100) {
             current_report_counter = 0;
-            char cur_str[10] = { 0 };
+            
             /* 100 ms average */
             uint32_t current = adc_result/adc_count;
             adc_result = 0;
@@ -195,10 +223,26 @@ void tim3_isr(void)
             /* convert to mV */
             /* then convert to uA with 50 V/V INA213 scale and 1 Ohm shunt */
             /* 1 uA = 0.001 mV on shunt = 0.05 mV on ADC input */
-            current = (20 * current * vdda) / 4095;
-            itoa(current, cur_str, 10);
-            vcdc_print("[CUR] ");
-            vcdc_println(cur_str);
+            current = (20 * current * vdda) / 4096;
+            
+            /* energy */
+            energy_accumultated_uah += current;
+            energy_accumultated_uwh += DIV_ROUND_CLOSEST(current * vdda, 1000);
+            
+            /* convert to microampere-hours */
+            energy_ahr = energy_accumultated_uah/(3600*10*10);
+            /* convert to microwatt-hours */
+            energy_whr = energy_accumultated_uwh/(3600*10*10);
+            
+            char out_str[60];
+            snprintf(out_str, 60, "[DAT] %lu %lu %lu.%lu %lu %lu",
+                                   msecs_passed, // milliseconds, 10 symbols max + leading space
+                                   vdda, // millivolts, 5 symbols max + leading space
+                                   DIV_ROUND_CLOSEST(current, 10), current % 10, // microamperes, 9 symbols max + leading space
+                                   energy_ahr, // microampere-hours, 10 symbols max + leading space
+                                   energy_whr); // microwatt-hours, 10 symbols max + leading space
+            
+            vcdc_println(out_str);
         }
     }
     
@@ -263,6 +307,9 @@ void tim3_isr(void)
                 target_power_state = true;
                 
                 /* start current monitoring */
+                msecs_passed = 0;
+                energy_accumultated_uah = 0;
+                energy_accumultated_uwh = 0;
                 adc_measure_vdda();
                 adc_measure_current();
                 
