@@ -32,7 +32,8 @@ all: DAP42 DAP42DC KITCHEN42 \
      DAP103-NUCLEO-STBOOT \
      BRAINv3.3 \
      DAP42K6U \
-     UMDK-EMB UMDK-RF
+     UMDK-EMB UMDK-RF \
+	 YA-EMB-R1
 clean:
 	$(Q)$(RM) $(BUILD_DIR)/*.bin
 	$(Q)$(MAKE) -C src/ clean
@@ -50,6 +51,12 @@ UMDK-RF:| $(BUILD_DIR)
 	$(Q)$(MAKE) TARGET=$(@) copy
 	
 UMDK-EMB:| $(BUILD_DIR)
+	@printf "  BUILD $(@)\n"
+	$(Q)$(MAKE) TARGET=$(@) -C src/ clean
+	$(Q)$(MAKE) TARGET=$(@) -C src/ $(FORMATS)
+	$(Q)$(MAKE) TARGET=$(@) copy
+	
+YNDX-EM-R1:| $(BUILD_DIR)
 	@printf "  BUILD $(@)\n"
 	$(Q)$(MAKE) TARGET=$(@) -C src/ clean
 	$(Q)$(MAKE) TARGET=$(@) -C src/ $(FORMATS)

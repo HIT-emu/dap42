@@ -32,6 +32,12 @@ ifeq ($(TARGET),UMDK-EMB)
 	LDSCRIPT           ?= ./stm32f042/stm32f042x6.ld
 	ARCH                = STM32F0
 endif
+ifeq ($(TARGET),YNDX-EM-R1)
+	TARGET_COMMON_DIR  := ./stm32f042
+	TARGET_SPEC_DIR    := ./stm32f042/yndx-em-r1
+	LDSCRIPT           ?= ./stm32f042/stm32f042x6.ld
+	ARCH                = STM32F0
+endif
 ifeq ($(TARGET),DAP42)
 	TARGET_COMMON_DIR  := ./stm32f042
 	TARGET_SPEC_DIR    := ./stm32f042/dap42

@@ -4,6 +4,10 @@ The dap42 project is an open-source firmware and [hardware design](https://githu
 This project is stable - it has been proven in the field by a few dozen users and all core functionality has been tested.
 
 ## Current features
+### Yandex EnergyMon R1
+
+YNDX-EM-R1 target was added to support Energymon R1 board by Yandex. `make YNDX-EM-R1` to build it.
+
 ### Unwired Devices
 
 UMDK-EMB target was added to support UMDK-ENERGYMON v.1.01 board by Unwired Devices. `make UMDK-EMB` to build it.
