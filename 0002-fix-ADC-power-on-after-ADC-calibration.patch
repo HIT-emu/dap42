@@ -18,7 +18,7 @@ index fb22d273..d1e4f4f7 100644
  {
 -	adc_power_on_async(adc);
 +#if defined(STM32F0)
-+    /* Workaround for STM32F0x2 Device Errata (see ES0243 2.4.2) */
++    /* Workaround for STM32F042 Device Errata (see ES0243 ver. 4 2.5.3) */
 +    do {
 +        adc_power_on_async(adc);
 +    }
