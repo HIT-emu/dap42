@@ -11,13 +11,13 @@
  #define MMIO8(addr)		(*(volatile uint8_t *)(addr))
  #define MMIO16(addr)		(*(volatile uint16_t *)(addr))
 
---- libopencm3/lib/cm3/vector.c	2023-03-04 16:17:09.641831400 +0300
-+++ libopencm3/lib/cm3/vector.c.new	2023-03-04 16:17:22.045323000 +0300
-@@ -70,6 +70,13 @@
-     while (dest < top) {
-         *(dest++) = STACK_CANARY_WORD;
-     }
-+    
+--- libopencm3/lib/cm3/vector.c	2026-04-09 14:42:42.585680600 +0300
++++ libopencm3/lib/cm3/vector.c.new	2026-04-09 14:48:18.377264400 +0300
+@@ -63,6 +63,13 @@
+ {
+ 	volatile unsigned *src, *dest;
+ 	funcp_t *fp;
++	
 +    volatile unsigned *top;
 +    __asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
 +    dest = &_ebss;
