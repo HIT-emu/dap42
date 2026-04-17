@@ -16,7 +16,6 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <errno.h>
 #include <stdio.h>
 
 #include <libopencm3/stm32/usart.h>
@@ -60,6 +59,48 @@ int _write(int file, char *ptr, int len) {
     }
 
     errno = EIO;
+    return -1;
+}
+
+/* Some dummy functions to satisfy recent newlib versions */
+int _close(int file)
+{
+    (void) file;
+    errno = ENOSYS;
+    return -1;
+}
+
+int _fstat(int file, struct stat *st)
+{
+    (void) file;
+    (void) st;
+    errno = ENOSYS;
+    return -1;
+}
+
+int _isatty(int file)
+{
+    (void) file;
+    return 0;;
+}
+
+off_t _lseek(int file, off_t offset, int whence)
+{
+    (void) file;
+    (void) offset;
+    (void) whence;
+    
+    /* Always return 0 (beginning of file) */
+    return 0;
+}
+
+ssize_t _read(int file, void *ptr, size_t len)
+{
+    (void) file;
+    (void) ptr;
+    (void) len;
+    
+    errno = EBADF;  /* Bad file descriptor */
     return -1;
 }
 
@@ -109,3 +150,4 @@ void println(const char* s) {
     putchar('\r');
     putchar('\n');
 }
+

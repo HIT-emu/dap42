@@ -19,6 +19,9 @@
 #ifndef RETARGET_H_INCLUDED
 #define RETARGET_H_INCLUDED
 
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define NO_USART 0xFFFFFFFFU
@@ -26,6 +29,11 @@
 
 extern void retarget(int file, uint32_t usart);
 extern int _write(int file, char *ptr, int len);
+extern int _close(int file);
+extern int _fstat(int file, struct stat *st);
+extern int _isatty(int file);
+extern off_t _lseek(int file, off_t offset, int whence);
+extern ssize_t _read(int file, void *ptr, size_t len);
 
 extern void print_hex(uint32_t x);
 extern void print_hex_nibble(uint8_t x);
