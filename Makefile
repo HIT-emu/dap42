@@ -33,7 +33,7 @@ all: DAP42 DAP42DC KITCHEN42 \
      BRAINv3.3 \
      DAP42K6U \
      UMDK-EMB UMDK-RF \
-	 YA-EMB-R1
+	 YNDX-EM-R1
 clean:
 	$(Q)$(RM) $(BUILD_DIR)/*.bin
 	$(Q)$(MAKE) -C src/ clean
