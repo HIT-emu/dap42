@@ -35,6 +35,7 @@
 #include "target.h"
 #include "config.h"
 #include "console.h"
+#include "battery_model.h"
 #include "DAP/CMSIS_DAP_config.h"
 #include "DAP/CMSIS_DAP.h"
 #include "DFU/DFU.h"
@@ -58,8 +59,6 @@
 
 #define DMA_DATA_SIZE           400
 static uint16_t dma_data[DMA_DATA_SIZE];
-
-typedef int32_t fixed_t;
 
 /*
  * Divide positive or negative dividend by positive divisor and round
