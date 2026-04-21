@@ -59,6 +59,8 @@
 #define DMA_DATA_SIZE           400
 static uint16_t dma_data[DMA_DATA_SIZE];
 
+typedef int32_t fixed_t;
+
 /*
  * Divide positive or negative dividend by positive divisor and round
  * to closest integer. Result is undefined for negative divisors and
@@ -139,6 +141,13 @@ static volatile struct {
     uint32_t vcount;
 } adc_data;
 
+static volatile struct {
+    uint64_t c_acc_na_us;      /* charge accumulator in nA*us */
+    fixed_t current_c;         /* current used capacity, Ah */
+    fixed_t voltage_slow_part; /* voltage term that depends on C */
+    fixed_t voltage_fast_part; /* voltage term that depends on I */
+} battery_state;
+
 typedef enum {
     SHOW_SECONDS        = 1 << 0,
     SHOW_VOLTAGE        = 1 << 1,
@@ -161,6 +170,18 @@ static volatile struct {
     uint32_t show;
     uint32_t baudrate;
     uint32_t dap_active;
+
+    /* Battery parameters */
+    fixed_t start_c;   /* initial used capacity, Ah */
+    fixed_t q;         /* nominal full capacity, Ah */
+    fixed_t r;         /* internal resistance, Ohm */
+
+    /* Empirical coefficients */
+    fixed_t e0;        /* base voltage, V */
+    fixed_t k1;        /* coefficient for ln(1 - C/Q), V */
+    fixed_t k2;        /* coefficient for ln(C/Q), V */
+    fixed_t a;         /* exponential term amplitude, V */
+    fixed_t b;         /* exponential term coefficient, 1/Ah */
 } emb_settings;
 
 /* last flash page (1KB on STM32F042) is for settings */
@@ -1376,6 +1397,14 @@ void gpio_setup(void) {
         emb_settings.period = 100;
         emb_settings.baudrate = DEFAULT_BAUDRATE;
         emb_settings.dap_active = 1;
+        emb_settings.start_c = 0;
+        emb_settings.q = 0;
+        emb_settings.r = 0;
+        emb_settings.e0 = 0;
+        emb_settings.k1 = 0;
+        emb_settings.k2 = 0;
+        emb_settings.a = 0;
+        emb_settings.b = 0;
     }
     
     if ((emb_settings.period < 10) || (emb_settings.period >= 1000)) {
@@ -1385,6 +1414,11 @@ void gpio_setup(void) {
     if ((emb_settings.baudrate == 0) || (emb_settings.baudrate > 1000000)) {
         emb_settings.baudrate = DEFAULT_BAUDRATE;
     }
+
+    battery_state.c_acc_na_us = 0;
+    battery_state.current_c = emb_settings.start_c;
+    battery_state.voltage_slow_part = 0;
+    battery_state.voltage_fast_part = 0;
     
     console_reconfigure(emb_settings.baudrate, 8, USART_STOPBITS_1, USART_PARITY_NONE);
     
