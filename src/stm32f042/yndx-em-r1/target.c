@@ -55,6 +55,16 @@
 
 #define TIM2_PRESCALER          TIM2_PRESCALER_3US
 
+#if TIM2_PRESCALER == TIM2_PRESCALER_3US
+#define ADC_SAMPLE_PERIOD_US    3
+#elif TIM2_PRESCALER == TIM2_PRESCALER_10US
+#define ADC_SAMPLE_PERIOD_US    10
+#elif TIM2_PRESCALER == TIM2_PRESCALER_50US
+#define ADC_SAMPLE_PERIOD_US    50
+#else
+#error "Unsupported TIM2 prescaler"
+#endif
+
 #define ADC_SAMPLE_TIME         ADC_SMPTIME_007DOT5
 
 #define DMA_DATA_SIZE           400
@@ -141,7 +151,7 @@ static volatile struct {
 } adc_data;
 
 static volatile struct {
-    uint64_t c_acc_na_us;      /* charge accumulator in nA*us */
+    uint64_t c_acc_01ua_us;    /* charge accumulator in 0.1uA*us */
     fixed_t current_c;         /* current used capacity, Ah */
     fixed_t voltage_slow_part; /* voltage term that depends on C */
     fixed_t voltage_fast_part; /* voltage term that depends on I */
@@ -214,6 +224,45 @@ void DAP_On_Disconnect(void) {
         dap_connected = false;
         timer_enable_counter(TIM2);
     }
+}
+
+static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t samples) {
+    if (samples == 0) {
+        return;
+    }
+
+    /*
+     * Keep the same conversion path as the existing firmware:
+     * raw ADC average -> shunt voltage in 0.1 mV -> current in 0.1 uA.
+     */
+    uint32_t raw_avg = DIV_ROUND_CLOSEST(raw_sum, samples);
+    uint32_t sense_01mv = (vdda * (10 * raw_avg)) / 4095;
+    uint32_t current_01ua = 0;
+
+    switch (range) {
+        case 0:
+            current_01ua = DIV_ROUND_CLOSEST(10 * sense_01mv, 102);
+            break;
+        case 1:
+            current_01ua = 100 * DIV_ROUND_CLOSEST(10 * sense_01mv, 102);
+            break;
+        case 2:
+            current_01ua = 100 * 100 * DIV_ROUND_CLOSEST(10 * sense_01mv, 102);
+            break;
+        default:
+            return;
+    }
+
+    /* Charge accumulator in 0.1 uA * us. */
+    battery_state.c_acc_01ua_us +=
+        (uint64_t)current_01ua * samples * ADC_SAMPLE_PERIOD_US;
+
+    /* Fast voltage part: -R * I, where I is converted to A in Q16.16. */
+    fixed_t current_a = (fixed_t)DIV_ROUND_CLOSEST(
+        (uint64_t)current_01ua * FIXED_ONE,
+        10000000ULL
+    );
+    battery_state.voltage_fast_part = -fixed_mul(emb_settings.r, current_a);
 }
 
 static void disable_power(void) {
@@ -468,6 +517,7 @@ void dma1_channel1_isr(void) {
         for (int i = 0; i < DMA_DATA_SIZE/2; i++) {
             data += dma_data[i];
         }
+        battery_update_fast(range, data, DMA_DATA_SIZE/2);
         data = DIV_ROUND_CLOSEST(data, DMA_DATA_SIZE/2);
         adc_data.raw_current[range] += data;
         adc_data.count[range] += 1;
@@ -478,6 +528,7 @@ void dma1_channel1_isr(void) {
         for (int i = DMA_DATA_SIZE/2; i < DMA_DATA_SIZE; i++) {
             data += dma_data[i];
         }
+        battery_update_fast(range, data, DMA_DATA_SIZE/2);
         data = DIV_ROUND_CLOSEST(data, DMA_DATA_SIZE/2);
         adc_data.raw_current[range] += data;
         adc_data.count[range] += 1;
@@ -612,6 +663,7 @@ void adc_comp_isr(void)
             data += data_ptr[i];
         }
 
+        battery_update_fast(range, data, size);
         data = DIV_ROUND_CLOSEST(data, size);
         adc_data.raw_current[range] += data;
         adc_data.count[range] += 1;
@@ -1414,7 +1466,7 @@ void gpio_setup(void) {
         emb_settings.baudrate = DEFAULT_BAUDRATE;
     }
 
-    battery_state.c_acc_na_us = 0;
+    battery_state.c_acc_01ua_us = 0;
     battery_state.current_c = emb_settings.start_c;
     battery_state.voltage_slow_part = 0;
     battery_state.voltage_fast_part = 0;
