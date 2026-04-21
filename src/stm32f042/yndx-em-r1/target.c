@@ -169,6 +169,7 @@ typedef enum {
     CMD_INT_CALIBRATE   = 1 << 0,
     CMD_INT_CONSOLEOUT  = 1 << 1,
     CMD_INT_LCDOUT      = 1 << 2,
+    CMD_INT_BATTERY_SLOW = 1 << 3,
 } internal_commands_t;
 
 /* emb_settings size must be multiple of 4 */
@@ -263,6 +264,38 @@ static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t sampl
         10000000ULL
     );
     battery_state.voltage_fast_part = -fixed_mul(emb_settings.r, current_a);
+}
+
+static void battery_update_slow(void) {
+    fixed_t c_delta = (fixed_t)DIV_ROUND_CLOSEST(
+        battery_state.c_acc_01ua_us,
+        549316406250ULL
+    );
+
+    battery_state.current_c = fixed_add(battery_state.current_c, c_delta);
+    battery_state.c_acc_01ua_us = 0;
+
+    if (emb_settings.q <= 0) {
+        return;
+    }
+
+    fixed_t ratio1 = fixed_div(battery_state.current_c, emb_settings.q);
+    fixed_t arg1 = fixed_sub(FIXED_ONE, ratio1);
+    fixed_t ln1 = fixed_ln(arg1);
+
+    fixed_t ln2 = fixed_ln(ratio1);
+
+    fixed_t BC = fixed_mul(emb_settings.b, battery_state.current_c);
+    fixed_t negBC = -BC;
+    fixed_t exp_term = fixed_mul(emb_settings.a, fixed_exp(negBC));
+
+    fixed_t term1 = fixed_mul(emb_settings.k1, ln1);
+    fixed_t term2 = fixed_mul(emb_settings.k2, ln2);
+    fixed_t sum = fixed_add(emb_settings.e0, term1);
+    sum = fixed_add(sum, term2);
+    sum = fixed_add(sum, exp_term);
+
+    battery_state.voltage_slow_part = sum;
 }
 
 static void disable_power(void) {
@@ -1181,6 +1214,7 @@ void systick_activity(void)
     if (current_report_counter && (current_report_counter % 1000 == 0)) {
         if (target_power_state) {
             seconds_passed += 1;
+            cmd_int |= CMD_INT_BATTERY_SLOW;
         }
     }
     
@@ -1217,6 +1251,11 @@ void user_activity(void) {
         cmd_int &= ~CMD_INT_CALIBRATE;
         calibrate_voltage(cal_voltage);
         disable_power();
+    }
+
+    if (cmd_int & CMD_INT_BATTERY_SLOW) {
+        cmd_int &= ~CMD_INT_BATTERY_SLOW;
+        battery_update_slow();
     }
     
     char cur_str[30] = { 0 };
