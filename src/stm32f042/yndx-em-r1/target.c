@@ -321,6 +321,8 @@ static void print_battery_params(void) {
     vcdc_println(str);
 }
 
+static void set_vout_mv(uint32_t mv);
+
 static void disable_power(void) {
     /* Stop TIM2 */
     timer_disable_counter(TIM2);
@@ -733,6 +735,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_maxreset = "maxreset - reset maximum current";
     const char *help_display = "display <N> - set display mode by number";
     const char *help_calibrate = "calibrate <mV> - calibrate voltage divider";
+    const char *help_vout = "vout <mV> - set DC/DC output voltage";
     const char *help_show = "show <SEC|VOL|CUR|AHR|WHR|all> - report values";
     const char *help_hide = "hide <SEC|VOL|CUR|AHR|WHR|all> - don't report values";
     const char *help_baudrate = "baudrate <bps> - set target UART baudrate";
@@ -753,6 +756,7 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_display);
         vcdc_println(help_maxreset);
         vcdc_println(help_calibrate);
+        vcdc_println(help_vout);
         vcdc_println(help_show);
         vcdc_println(help_hide);
         vcdc_println(help_baudrate);
@@ -1002,6 +1006,19 @@ static void console_command_parser(uint8_t *usb_command) {
             current_report_counter = 1;
         } else {
             vcdc_println(help_calibrate);
+        }
+    }
+    else
+    if (memcmp((char *)usb_command, "vout ", cmdlen = strlen("vout ")) == 0) {
+        int mv = strtol((char *)&usb_command[cmdlen], NULL, 10);
+
+        if ((mv >= (int)VOUT_MV_MIN) && (mv <= (int)VOUT_MV_MAX)) {
+            set_vout_mv(mv);
+            char str[30];
+            snprintf(str, 30, "[INF] Vout set to %d mV", mv);
+            vcdc_println(str);
+        } else {
+            vcdc_println(help_vout);
         }
     }
     else
@@ -1324,6 +1341,9 @@ void systick_activity(void)
                 energy_accumultated_uah = 0;
                 energy_accumultated_uwh = 0;
                 seconds_passed = 0;
+                /* Enable DC/DC and output switch */
+                gpio_set(PWR_DCDC_EN_PORT, PWR_DCDC_EN_PIN);
+                gpio_set(PWR_EXTX1_EN_PORT, PWR_EXTX1_EN_PIN);
                 /* Enable current shunt (range 2 by default) */
                 gpio_clear(CURRENT_RANGE0_PORT, CURRENT_RANGE0_PIN);
                 gpio_set(CURRENT_RANGE1_PORT, CURRENT_RANGE1_PIN);
@@ -1537,6 +1557,43 @@ void user_activity(void) {
     }
 }
 
+/* Setup PWM on PA7 for DC/DC output voltage control.
+ * RC-filtered PWM is injected into DA3 feedback loop (inverted logic:
+ * higher duty -> lower output voltage). */
+static void vout_pwm_setup(void)
+{
+    rcc_periph_clock_enable(VOUT_PWM_RCC);
+
+    /* PA7 as alternate function */
+    gpio_mode_setup(VOUT_PWM_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, VOUT_PWM_PIN);
+    gpio_set_output_options(VOUT_PWM_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_HIGH, VOUT_PWM_PIN);
+    gpio_set_af(VOUT_PWM_PORT, VOUT_PWM_AF, VOUT_PWM_PIN);
+
+    rcc_periph_reset_pulse(VOUT_PWM_RST);
+    timer_set_mode(VOUT_PWM_TIMER, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+    timer_set_prescaler(VOUT_PWM_TIMER, 0);
+    timer_set_period(VOUT_PWM_TIMER, VOUT_PWM_PERIOD - 1);
+
+    timer_set_oc_mode(VOUT_PWM_TIMER, TIM_OC1, TIM_OCM_PWM1);
+    timer_set_oc_polarity_high(VOUT_PWM_TIMER, TIM_OC1);
+    timer_set_oc_value(VOUT_PWM_TIMER, TIM_OC1, VOUT_PWM_PERIOD);
+    timer_enable_oc_output(VOUT_PWM_TIMER, TIM_OC1);
+
+    timer_enable_counter(VOUT_PWM_TIMER);
+}
+
+/* Set DC/DC output voltage in mV by computing PWM duty cycle.
+ * Linear map with inverted logic: mV=VOUT_MV_MIN -> duty=100%, mV=VOUT_MV_MAX -> duty=0%.
+ * NOTE: coefficients are approximate and may need empirical calibration. */
+static void set_vout_mv(uint32_t mv)
+{
+    if (mv < VOUT_MV_MIN) mv = VOUT_MV_MIN;
+    if (mv > VOUT_MV_MAX) mv = VOUT_MV_MAX;
+
+    uint32_t duty = (VOUT_PWM_PERIOD * (VOUT_MV_MAX - mv)) / (VOUT_MV_MAX - VOUT_MV_MIN);
+    timer_set_oc_value(VOUT_PWM_TIMER, TIM_OC1, duty);
+}
+
 /* starts ADC conversion every ~3 us */
 static void tim2_setup(void)
 {
@@ -1618,6 +1675,7 @@ void gpio_setup(void) {
 
     /* Setup timers */
     tim2_setup();
+    vout_pwm_setup();
     
     memcpy((void *)&emb_settings, (void *)FLASH_CONFIG_ADDR, sizeof(emb_settings));
     if (emb_settings.magic != FLASH_CONFIG_MAGIC) {

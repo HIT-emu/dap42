@@ -83,6 +83,20 @@
 #define PWR_USBC_EN_PORT		GPIOF
 #define PWR_USBC_EN_PIN			GPIO0
 
+/* DC/DC output voltage control via PWM on PA7 (TIM14_CH1, AF4).
+ * PWM is low-pass filtered by R50-C22-R51 and injected into DC/DC DA3 feedback.
+ * Inverted logic: higher PWM duty -> lower output voltage. */
+#define VOUT_PWM_PORT           GPIOA
+#define VOUT_PWM_PIN            GPIO7
+#define VOUT_PWM_AF             GPIO_AF4
+#define VOUT_PWM_TIMER          TIM14
+#define VOUT_PWM_RCC            RCC_TIM14
+#define VOUT_PWM_RST            RST_TIM14
+#define VOUT_PWM_PERIOD         480     /* 48 MHz / 480 = 100 kHz PWM */
+/* Approximate control range for vout command. */
+#define VOUT_MV_MIN             1700
+#define VOUT_MV_MAX             5000
+
 #define TARGET_BOOT_PORT        GPIOF
 #define TARGET_BOOT_PIN         GPIO1
 #define TARGET_RESET_PORT		GPIOB
