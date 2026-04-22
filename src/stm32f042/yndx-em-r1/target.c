@@ -140,7 +140,7 @@ static volatile bool dap_connected = false;
 
 static volatile bool board_v2 = false;
 
-#define USB_COMMAND_SIZE    20
+#define USB_COMMAND_SIZE    96
 
 static volatile struct {
     uint32_t current[3];
@@ -296,6 +296,29 @@ static void battery_update_slow(void) {
     sum = fixed_add(sum, exp_term);
 
     battery_state.voltage_slow_part = sum;
+}
+
+static fixed_t fixed_from_x1000(long value) {
+    return (fixed_t)DIV_ROUND_CLOSEST((int64_t)value * FIXED_ONE, 1000);
+}
+
+static long fixed_to_x1000(fixed_t value) {
+    return (long)DIV_ROUND_CLOSEST((int64_t)value * 1000, FIXED_ONE);
+}
+
+static void print_battery_params(void) {
+    char str[96];
+    snprintf(str, sizeof(str),
+             "[PAR] params %ld %ld %ld %ld %ld %ld %ld %ld",
+             fixed_to_x1000(emb_settings.start_c),
+             fixed_to_x1000(emb_settings.q),
+             fixed_to_x1000(emb_settings.r),
+             fixed_to_x1000(emb_settings.e0),
+             fixed_to_x1000(emb_settings.k1),
+             fixed_to_x1000(emb_settings.k2),
+             fixed_to_x1000(emb_settings.a),
+             fixed_to_x1000(emb_settings.b));
+    vcdc_println(str);
 }
 
 static void disable_power(void) {
@@ -716,6 +739,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_reset = "reset - reset target";
     const char *help_boot = "boot - switch target to bootloader mode";
     const char *help_dap = "dap <on|off> - stop current measurements when DAP is active";
+    const char *help_params = "params [<C> <Q> <R> <E0> <k1> <k2> <a> <b>] - get/set battery model parameters, x1000";
 
     int cmdlen;
 
@@ -732,10 +756,113 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_hide);
         vcdc_println(help_baudrate);
         vcdc_println(help_dap);
+        vcdc_println(help_params);
     }
     else
     if (memcmp((char *)usb_command, "maxreset", strlen("maxreset")) == 0) {
         current_max_ua = 0;
+    }
+    else
+    if (memcmp((char *)usb_command, "params", cmdlen = strlen("params")) == 0) {
+        if (((char *)usb_command)[cmdlen] == 0) {
+            print_battery_params();
+            return;
+        }
+
+        if (((char *)usb_command)[cmdlen] != ' ') {
+            vcdc_println(help_params);
+            return;
+        }
+
+        char *ptr = (char *)&usb_command[cmdlen + 1];
+        char *endptr;
+        long start_c;
+        long q;
+        long r;
+        long e0;
+        long k1;
+        long k2;
+        long a;
+        long b;
+
+        start_c = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        q = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        r = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        e0 = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        k1 = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        k2 = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        a = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+        ptr = endptr;
+
+        b = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_params);
+            return;
+        }
+
+        if ((start_c < 0) || (q <= 0) || (r < 0) || (start_c > q)) {
+            vcdc_println(help_params);
+            return;
+        }
+
+        emb_settings.start_c = fixed_from_x1000(start_c);
+        emb_settings.q = fixed_from_x1000(q);
+        emb_settings.r = fixed_from_x1000(r);
+        emb_settings.e0 = fixed_from_x1000(e0);
+        emb_settings.k1 = fixed_from_x1000(k1);
+        emb_settings.k2 = fixed_from_x1000(k2);
+        emb_settings.a = fixed_from_x1000(a);
+        emb_settings.b = fixed_from_x1000(b);
+
+        battery_state.c_acc_01ua_us = 0;
+        battery_state.current_c = emb_settings.start_c;
+        battery_state.voltage_fast_part = 0;
+        battery_state.voltage_slow_part = 0;
+        battery_update_slow();
+
+        save_settings();
+        vcdc_println("[INF] Battery parameters saved");
+        print_battery_params();
     }
     else
     if (memcmp((char *)usb_command, "period ", cmdlen = strlen("period ")) == 0) {
@@ -977,8 +1104,10 @@ void systick_activity(void)
     /* every 100 ms */
     if (current_report_counter && (current_report_counter % 100 == 0)) {
         /* console command parser */
-        static uint8_t usb_command[USB_COMMAND_SIZE];
-        if (vcdc_recv_buffered(usb_command, USB_COMMAND_SIZE) != 0) {
+        static uint8_t usb_command[USB_COMMAND_SIZE + 1];
+        size_t cmd_size = vcdc_recv_buffered(usb_command, USB_COMMAND_SIZE);
+        if (cmd_size != 0) {
+            usb_command[cmd_size] = 0;
             console_command_parser(usb_command);
         }
     }
