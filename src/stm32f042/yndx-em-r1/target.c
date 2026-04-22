@@ -142,6 +142,8 @@ static volatile bool board_v2 = false;
 static bool battery_auto_enabled = false;
 
 #define USB_COMMAND_SIZE    96
+static volatile bool usb_command_pending = false;
+static uint8_t usb_command[USB_COMMAND_SIZE + 1];
 
 static volatile struct {
     uint32_t current[3];
@@ -744,7 +746,7 @@ void adc_comp_isr(void)
 
 static void console_command_parser(uint8_t *usb_command) {
     const char *help_period = "period <ms> - set period in milliseconds, 10 to 1000";
-    const char *help_iface = "iface <on|off> - enable/disable UART and SWD interfaces";
+    // const char *help_iface = "iface <on|off> - enable/disable UART and SWD interfaces";
     const char *help_power = "power <on|off> - enable/disable onboard DC/DC";
     const char *help_maxreset = "maxreset - reset maximum current";
     const char *help_display = "display <N> - set display mode by number";
@@ -753,10 +755,10 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_auto = "auto <on|off> - enable/disable autonomous firmware mode";
     const char *help_show = "show <SEC|VOL|CUR|AHR|WHR|all> - report values";
     const char *help_hide = "hide <SEC|VOL|CUR|AHR|WHR|all> - don't report values";
-    const char *help_baudrate = "baudrate <bps> - set target UART baudrate";
-    const char *help_reset = "reset - reset target";
-    const char *help_boot = "boot - switch target to bootloader mode";
-    const char *help_dap = "dap <on|off> - stop current measurements when DAP is active";
+    // const char *help_baudrate = "baudrate <bps> - set target UART baudrate";
+    // const char *help_reset = "reset - reset target";
+    // const char *help_boot = "boot - switch target to bootloader mode";
+    // const char *help_dap = "dap <on|off> - stop current measurements when DAP is active";
     const char *help_params = "params [<C> <Q> <R> <E0> <k1> <k2> <a> <b>] - get/set battery model parameters, x1000";
     const char *help_savec = "savec - save current C as start_c";
 
@@ -764,9 +766,9 @@ static void console_command_parser(uint8_t *usb_command) {
 
     if (memcmp((char *)usb_command, "help", strlen("help")) == 0) {
         vcdc_println(help_period);
-        vcdc_println(help_reset);
-        vcdc_println(help_boot);
-        vcdc_println(help_iface);
+        // vcdc_println(help_reset);
+        // vcdc_println(help_boot);
+        // vcdc_println(help_iface);
         vcdc_println(help_power);
         vcdc_println(help_display);
         vcdc_println(help_maxreset);
@@ -775,8 +777,8 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_auto);
         vcdc_println(help_show);
         vcdc_println(help_hide);
-        vcdc_println(help_baudrate);
-        vcdc_println(help_dap);
+        // vcdc_println(help_baudrate);
+        // vcdc_println(help_dap);
         vcdc_println(help_params);
         vcdc_println(help_savec);
     }
@@ -913,58 +915,59 @@ static void console_command_parser(uint8_t *usb_command) {
         }
     }
     else
-    if (memcmp((char *)usb_command, "baudrate ", cmdlen = strlen("baudrate ")) == 0) {
-        int baudrate = strtol((char *)&usb_command[cmdlen], NULL, 10);
+    // if (memcmp((char *)usb_command, "baudrate ", cmdlen = strlen("baudrate ")) == 0) {
+    //     int baudrate = strtol((char *)&usb_command[cmdlen], NULL, 10);
 
-        if (baudrate != 0) {
-            vcdc_print("[INF] Baudrate is ");
-            char str[10];
-            snprintf(str, 10, "%d", baudrate);
-            vcdc_print(str);
-            vcdc_println(" bps");
+    //     if (baudrate != 0) {
+    //         vcdc_print("[INF] Baudrate is ");
+    //         char str[10];
+    //         snprintf(str, 10, "%d", baudrate);
+    //         vcdc_print(str);
+    //         vcdc_println(" bps");
             
-            console_reconfigure(baudrate, 8, USART_STOPBITS_1, USART_PARITY_NONE);
+    //         console_reconfigure(baudrate, 8, USART_STOPBITS_1, USART_PARITY_NONE);
             
-            emb_settings.baudrate = baudrate;
-            save_settings();
-        }
-        else {
-            vcdc_println(help_baudrate);
-            vcdc_send_buffer_space();
-        }
-    }
-    else
-    if (memcmp((char *)usb_command, "iface ", cmdlen = strlen("iface ")) == 0) {
-        if (memcmp((char *)&usb_command[cmdlen], "on", 2) == 0) {
-            is_interface_connected = false;
-            button2_counter = 100;
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "off", 3) == 0) {
-            is_interface_connected = true;
-            button2_counter = 100;
-        }
-        else {
-            vcdc_println(help_iface);
-            vcdc_send_buffer_space();
-        }
-    }
-    if (memcmp((char *)usb_command, "dap ", cmdlen = strlen("dap ")) == 0) {
-        if (memcmp((char *)&usb_command[cmdlen], "on", 2) == 0) {
-            emb_settings.dap_active = 1;
-            save_settings();
-        }
-        else
-        if (memcmp((char *)&usb_command[cmdlen], "off", 3) == 0) {
-            emb_settings.dap_active = 0;
-            save_settings();
-        }
-        else {
-            vcdc_println(help_iface);
-            vcdc_send_buffer_space();
-        }
-    }
-    else
+    //         emb_settings.baudrate = baudrate;
+    //         save_settings();
+    //     }
+    //     else {
+    //         vcdc_println(help_baudrate);
+    //         vcdc_send_buffer_space();
+    //     }
+    // }
+    // else
+    // if (memcmp((char *)usb_command, "iface ", cmdlen = strlen("iface ")) == 0) {
+    //     if (memcmp((char *)&usb_command[cmdlen], "on", 2) == 0) {
+    //         is_interface_connected = false;
+    //         button2_counter = 100;
+    //     }
+    //     else
+    //     if (memcmp((char *)&usb_command[cmdlen], "off", 3) == 0) {
+    //         is_interface_connected = true;
+    //         button2_counter = 100;
+    //     }
+    //     else {
+    //         vcdc_println(help_iface);
+    //         vcdc_send_buffer_space();
+    //     }
+    // }
+    // else
+    // if (memcmp((char *)usb_command, "dap ", cmdlen = strlen("dap ")) == 0) {
+    //     if (memcmp((char *)&usb_command[cmdlen], "on", 2) == 0) {
+    //         emb_settings.dap_active = 1;
+    //         save_settings();
+    //     }
+    //     else
+    //     if (memcmp((char *)&usb_command[cmdlen], "off", 3) == 0) {
+    //         emb_settings.dap_active = 0;
+    //         save_settings();
+    //     }
+    //     else {
+    //         vcdc_println(help_iface);
+    //         vcdc_send_buffer_space();
+    //     }
+    // }
+    // else
     if (memcmp((char *)usb_command, "power ", cmdlen = strlen("power ")) == 0) {
         if (memcmp((char *)&usb_command[cmdlen], "on", 2) == 0) {
             target_power_state = false;
@@ -986,29 +989,29 @@ static void console_command_parser(uint8_t *usb_command) {
         display_mode = strtol((char *)&usb_command[cmdlen], NULL, 10);
     }
     else
-    if (memcmp((char *)usb_command, "reset ", cmdlen = strlen("reset ")) == 0) {
-        #if nRESET_GPIO_INVERT
-            gpio_set(TARGET_RESET_PORT, TARGET_RESET_PIN);
-        #else
-            gpio_clear(TARGET_RESET_PORT, TARGET_RESET_PIN);
-        #endif
+    // if (memcmp((char *)usb_command, "reset", cmdlen = strlen("reset")) == 0) {
+    //     #if nRESET_GPIO_INVERT
+    //         gpio_set(TARGET_RESET_PORT, TARGET_RESET_PIN);
+    //     #else
+    //         gpio_clear(TARGET_RESET_PORT, TARGET_RESET_PIN);
+    //     #endif
         
-        target_release_reset = 100; /* 100 ms */
-    }
-    else
-    if (memcmp((char *)usb_command, "boot ", cmdlen = strlen("boot ")) == 0) {
-        #if nRESET_GPIO_INVERT
-            gpio_set(TARGET_RESET_PORT, TARGET_RESET_PIN);
-        #else
-            gpio_clear(TARGET_RESET_PORT, TARGET_RESET_PIN);
-        #endif
+    //     target_release_reset = 100; /* 100 ms */
+    // }
+    // else
+    // if (memcmp((char *)usb_command, "boot", cmdlen = strlen("boot")) == 0) {
+    //     #if nRESET_GPIO_INVERT
+    //         gpio_set(TARGET_RESET_PORT, TARGET_RESET_PIN);
+    //     #else
+    //         gpio_clear(TARGET_RESET_PORT, TARGET_RESET_PIN);
+    //     #endif
         
-        gpio_clear(TARGET_BOOT_PORT, TARGET_BOOT_PIN); /* inverted */
+    //     gpio_clear(TARGET_BOOT_PORT, TARGET_BOOT_PIN); /* inverted */
         
-        target_release_boot = 750; /* 750 ms */
-        target_release_reset = 100; /* 100 ms */
-    }
-    else
+    //     target_release_boot = 750; /* 750 ms */
+    //     target_release_reset = 100; /* 100 ms */
+    // }
+    // else
     if (memcmp((char *)usb_command, "calibrate ", cmdlen = strlen("calibrate ")) == 0) {
         cal_voltage = strtol((char *)&usb_command[cmdlen], NULL, 10);
         if ((cal_voltage > 0) && (cal_voltage < 20000)) {
@@ -1161,13 +1164,25 @@ void systick_activity(void)
     /* every 100 ms */
     if (current_report_counter && (current_report_counter % 100 == 0)) {
         /* console command parser */
-        static uint8_t usb_command[USB_COMMAND_SIZE + 1];
-        size_t cmd_size = vcdc_recv_buffered(usb_command, USB_COMMAND_SIZE);
+        size_t cmd_size;
+
+        if (usb_command_pending) {
+            goto skip_usb_command;
+        }
+
+        cmd_size = vcdc_recv_buffered(usb_command, USB_COMMAND_SIZE);
+        while (cmd_size &&
+               ((usb_command[cmd_size - 1] == '\r') ||
+                (usb_command[cmd_size - 1] == '\n'))) {
+            cmd_size--;
+        }
+
         if (cmd_size != 0) {
             usb_command[cmd_size] = 0;
-            console_command_parser(usb_command);
+            usb_command_pending = true;
         }
     }
+skip_usb_command:
     
     if (do_calibrate) {
         do_calibrate--;
@@ -1436,6 +1451,11 @@ void systick_activity(void)
 }
 
 void user_activity(void) {
+    if (usb_command_pending) {
+        console_command_parser(usb_command);
+        usb_command_pending = false;
+    }
+
     if (cmd_int & CMD_INT_CALIBRATE) {
         cmd_int &= ~CMD_INT_CALIBRATE;
         calibrate_voltage(cal_voltage);
