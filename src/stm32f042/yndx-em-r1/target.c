@@ -740,6 +740,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_boot = "boot - switch target to bootloader mode";
     const char *help_dap = "dap <on|off> - stop current measurements when DAP is active";
     const char *help_params = "params [<C> <Q> <R> <E0> <k1> <k2> <a> <b>] - get/set battery model parameters, x1000";
+    const char *help_savec = "savec - save current C as start_c";
 
     int cmdlen;
 
@@ -757,10 +758,18 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_baudrate);
         vcdc_println(help_dap);
         vcdc_println(help_params);
+        vcdc_println(help_savec);
     }
     else
     if (memcmp((char *)usb_command, "maxreset", strlen("maxreset")) == 0) {
         current_max_ua = 0;
+    }
+    else
+    if (memcmp((char *)usb_command, "savec", strlen("savec")) == 0) {
+        emb_settings.start_c = battery_state.current_c;
+        save_settings();
+        vcdc_println("[INF] Current C saved as start_c");
+        print_battery_params();
     }
     else
     if (memcmp((char *)usb_command, "params", cmdlen = strlen("params")) == 0) {
