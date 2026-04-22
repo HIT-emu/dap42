@@ -227,6 +227,9 @@ void DAP_On_Disconnect(void) {
     }
 }
 
+static void set_real_voltage(void);
+static void set_vout_mv(uint32_t mv);
+
 static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t samples) {
     if (samples == 0) {
         return;
@@ -264,6 +267,7 @@ static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t sampl
         10000000ULL
     );
     battery_state.voltage_fast_part = -fixed_mul(emb_settings.r, current_a);
+    set_real_voltage();
 }
 
 static void battery_update_slow(void) {
@@ -296,6 +300,7 @@ static void battery_update_slow(void) {
     sum = fixed_add(sum, exp_term);
 
     battery_state.voltage_slow_part = sum;
+    set_real_voltage();
 }
 
 static fixed_t fixed_from_x1000(long value) {
@@ -320,8 +325,6 @@ static void print_battery_params(void) {
              fixed_to_x1000(emb_settings.b));
     vcdc_println(str);
 }
-
-static void set_vout_mv(uint32_t mv);
 
 static void disable_power(void) {
     /* Stop TIM2 */
@@ -1580,6 +1583,32 @@ static void vout_pwm_setup(void)
     timer_enable_oc_output(VOUT_PWM_TIMER, TIM_OC1);
 
     timer_enable_counter(VOUT_PWM_TIMER);
+}
+
+/* Temporary mapping from the calculated battery voltage to the experimental
+ * control code used by the current PWM-based DC/DC path.
+ *
+ * Calibration points from hardware tests:
+ *   code 2500 -> ~1.34 V
+ *   code 5000 -> ~3.27 V
+ */
+static void set_real_voltage(void)
+{
+    fixed_t voltage = fixed_add(battery_state.voltage_slow_part,
+                                battery_state.voltage_fast_part);
+    fixed_t voltage_low = (fixed_t)DIV_ROUND_CLOSEST((int64_t)1340 * FIXED_ONE, 1000);
+    fixed_t voltage_high = (fixed_t)DIV_ROUND_CLOSEST((int64_t)3270 * FIXED_ONE, 1000);
+    fixed_t code_span = (fixed_t)(2500 * FIXED_ONE);
+    fixed_t voltage_span = fixed_sub(voltage_high, voltage_low);
+    fixed_t voltage_delta = fixed_sub(voltage, voltage_low);
+    fixed_t code_delta = fixed_div(fixed_mul(voltage_delta, code_span), voltage_span);
+    int32_t code = 2500 + DIV_ROUND_CLOSEST(code_delta, FIXED_ONE);
+
+    if (code < 0) {
+        code = 0;
+    }
+
+    set_vout_mv((uint32_t)code);
 }
 
 /* Set DC/DC output voltage in mV by computing PWM duty cycle.
