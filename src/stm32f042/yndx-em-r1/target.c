@@ -139,6 +139,7 @@ static volatile uint8_t cmd_int = 0;
 static volatile bool dap_connected = false;
 
 static volatile bool board_v2 = false;
+static bool battery_auto_enabled = false;
 
 #define USB_COMMAND_SIZE    96
 
@@ -229,6 +230,7 @@ void DAP_On_Disconnect(void) {
 
 static void set_real_voltage(void);
 static void set_vout_mv(uint32_t mv);
+static void set_battery_auto(bool enabled);
 
 static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t samples) {
     if (samples == 0) {
@@ -267,7 +269,9 @@ static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t sampl
         10000000ULL
     );
     battery_state.voltage_fast_part = -fixed_mul(emb_settings.r, current_a);
-    set_real_voltage();
+    if (battery_auto_enabled) {
+        set_real_voltage();
+    }
 }
 
 static void battery_update_slow(void) {
@@ -300,7 +304,9 @@ static void battery_update_slow(void) {
     sum = fixed_add(sum, exp_term);
 
     battery_state.voltage_slow_part = sum;
-    set_real_voltage();
+    if (battery_auto_enabled) {
+        set_real_voltage();
+    }
 }
 
 static fixed_t fixed_from_x1000(long value) {
@@ -324,6 +330,11 @@ static void print_battery_params(void) {
              fixed_to_x1000(emb_settings.a),
              fixed_to_x1000(emb_settings.b));
     vcdc_println(str);
+}
+
+static void set_battery_auto(bool enabled)
+{
+    battery_auto_enabled = enabled;
 }
 
 static void disable_power(void) {
@@ -739,6 +750,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_display = "display <N> - set display mode by number";
     const char *help_calibrate = "calibrate <mV> - calibrate voltage divider";
     const char *help_vout = "vout <mV> - set DC/DC output voltage";
+    const char *help_auto = "auto <on|off> - enable/disable autonomous firmware mode";
     const char *help_show = "show <SEC|VOL|CUR|AHR|WHR|all> - report values";
     const char *help_hide = "hide <SEC|VOL|CUR|AHR|WHR|all> - don't report values";
     const char *help_baudrate = "baudrate <bps> - set target UART baudrate";
@@ -760,6 +772,7 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_maxreset);
         vcdc_println(help_calibrate);
         vcdc_println(help_vout);
+        vcdc_println(help_auto);
         vcdc_println(help_show);
         vcdc_println(help_hide);
         vcdc_println(help_baudrate);
@@ -1022,6 +1035,21 @@ static void console_command_parser(uint8_t *usb_command) {
             vcdc_println(str);
         } else {
             vcdc_println(help_vout);
+        }
+    }
+    else
+    if (memcmp((char *)usb_command, "auto ", cmdlen = strlen("auto ")) == 0) {
+        if (memcmp((char *)&usb_command[cmdlen], "on", 2) == 0) {
+            set_battery_auto(true);
+            vcdc_println("[INF] Autonomous mode enabled");
+        }
+        else
+        if (memcmp((char *)&usb_command[cmdlen], "off", 3) == 0) {
+            set_battery_auto(false);
+            vcdc_println("[INF] Autonomous mode disabled");
+        }
+        else {
+            vcdc_println(help_auto);
         }
     }
     else
