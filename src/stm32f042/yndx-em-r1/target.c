@@ -195,6 +195,10 @@ static volatile struct {
     fixed_t k2;        /* coefficient for ln(C/Q), V */
     fixed_t a;         /* exponential term amplitude, V */
     fixed_t b;         /* exponential term coefficient, 1/Ah */
+
+    /* Output-voltage calibration */
+    uint32_t vout_min_mv; /* duty=VOUT_PWM_PERIOD */
+    uint32_t vout_max_mv; /* duty=0 */
 } emb_settings;
 
 /* last flash page (1KB on STM32F042) is for settings */
@@ -231,7 +235,7 @@ void DAP_On_Disconnect(void) {
 }
 
 static void set_real_voltage(void);
-static void set_vout_mv(uint32_t mv);
+static void set_vout_duty(uint32_t duty);
 static void set_battery_auto(bool enabled);
 
 static void battery_update_fast(uint32_t range, uint32_t raw_sum, uint32_t samples) {
@@ -340,6 +344,13 @@ static void set_battery_auto(bool enabled)
 }
 
 static void disable_power(void) {
+    if (!gpio_get(PWR_EXTX1_EN_PORT, PWR_EXTX1_EN_PIN) &&
+        !gpio_get(PWR_DCDC_EN_PORT, PWR_DCDC_EN_PIN) &&
+        !gpio_get(PWR_USBC_EN_PORT, PWR_USBC_EN_PIN)) {
+        vcdc_println("[INF] already off");
+        return;
+    }
+
     /* Stop TIM2 */
     timer_disable_counter(TIM2);
     
@@ -751,7 +762,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_maxreset = "maxreset - reset maximum current";
     const char *help_display = "display <N> - set display mode by number";
     const char *help_calibrate = "calibrate <mV> - calibrate voltage divider";
-    const char *help_vout = "vout <mV> - set DC/DC output voltage";
+    const char *help_vout = "vout <duty> - set DC/DC PWM duty value";
     const char *help_auto = "auto <on|off> - enable/disable autonomous firmware mode";
     const char *help_show = "show <SEC|VOL|CUR|AHR|WHR|all> - report values";
     const char *help_hide = "hide <SEC|VOL|CUR|AHR|WHR|all> - don't report values";
@@ -975,6 +986,10 @@ static void console_command_parser(uint8_t *usb_command) {
         }
         else
         if (memcmp((char *)&usb_command[cmdlen], "off", 3) == 0) {
+            if (!target_power_state) {
+                vcdc_println("[INF] already off");
+                return;
+            }
             target_power_state = true;
             button1_counter = 100;
         }
@@ -1029,12 +1044,12 @@ static void console_command_parser(uint8_t *usb_command) {
     }
     else
     if (memcmp((char *)usb_command, "vout ", cmdlen = strlen("vout ")) == 0) {
-        int mv = strtol((char *)&usb_command[cmdlen], NULL, 10);
+        int duty = strtol((char *)&usb_command[cmdlen], NULL, 10);
 
-        if ((mv >= (int)VOUT_MV_MIN) && (mv <= (int)VOUT_MV_MAX)) {
-            set_vout_mv(mv);
-            char str[30];
-            snprintf(str, 30, "[INF] Vout set to %d mV", mv);
+        if ((duty >= 0) && (duty <= (int)VOUT_PWM_PERIOD)) {
+            set_vout_duty((uint32_t)duty);
+            char str[40];
+            snprintf(str, 40, "[INF] Vout duty set to %d", duty);
             vcdc_println(str);
         } else {
             vcdc_println(help_vout);
@@ -1633,41 +1648,48 @@ static void vout_pwm_setup(void)
     timer_enable_counter(VOUT_PWM_TIMER);
 }
 
-/* Temporary mapping from the calculated battery voltage to the experimental
- * control code used by the current PWM-based DC/DC path.
- *
- * Calibration points from hardware tests:
- *   code 2500 -> ~1.34 V
- *   code 5000 -> ~3.27 V
+/* Convert model voltage (Q16.16 volts) to PWM duty using calibrated
+ * real-voltage endpoints from settings:
+ *   duty = VOUT_PWM_PERIOD -> vout_min_mv
+ *   duty = 0               -> vout_max_mv
  */
 static void set_real_voltage(void)
 {
     fixed_t voltage = fixed_add(battery_state.voltage_slow_part,
                                 battery_state.voltage_fast_part);
-    fixed_t voltage_low = (fixed_t)DIV_ROUND_CLOSEST((int64_t)1340 * FIXED_ONE, 1000);
-    fixed_t voltage_high = (fixed_t)DIV_ROUND_CLOSEST((int64_t)3270 * FIXED_ONE, 1000);
-    fixed_t code_span = (fixed_t)(2500 * FIXED_ONE);
-    fixed_t voltage_span = fixed_sub(voltage_high, voltage_low);
-    fixed_t voltage_delta = fixed_sub(voltage, voltage_low);
-    fixed_t code_delta = fixed_div(fixed_mul(voltage_delta, code_span), voltage_span);
-    int32_t code = 2500 + DIV_ROUND_CLOSEST(code_delta, FIXED_ONE);
+    int32_t voltage_mv = (int32_t)DIV_ROUND_CLOSEST((int64_t)voltage * 1000, FIXED_ONE);
+    uint32_t min_mv = emb_settings.vout_min_mv;
+    uint32_t max_mv = emb_settings.vout_max_mv;
+    uint32_t clamped_mv;
+    uint32_t duty;
 
-    if (code < 0) {
-        code = 0;
+    if (min_mv >= max_mv) {
+        set_vout_duty(VOUT_PWM_PERIOD);
+        return;
     }
 
-    set_vout_mv((uint32_t)code);
+    if (voltage_mv <= (int32_t)min_mv) {
+        clamped_mv = min_mv;
+    }
+    else if (voltage_mv >= (int32_t)max_mv) {
+        clamped_mv = max_mv;
+    }
+    else {
+        clamped_mv = (uint32_t)voltage_mv;
+    }
+
+    duty = (uint32_t)(((uint64_t)VOUT_PWM_PERIOD * (max_mv - clamped_mv)) /
+                      (max_mv - min_mv));
+    set_vout_duty(duty);
 }
 
-/* Set DC/DC output voltage in mV by computing PWM duty cycle.
- * Linear map with inverted logic: mV=VOUT_MV_MIN -> duty=100%, mV=VOUT_MV_MAX -> duty=0%.
- * NOTE: coefficients are approximate and may need empirical calibration. */
-static void set_vout_mv(uint32_t mv)
+/* Set DC/DC output PWM duty value directly as TIM14 CCR1 code.
+ * Valid range: 0..VOUT_PWM_PERIOD (ARR is VOUT_PWM_PERIOD - 1). */
+static void set_vout_duty(uint32_t duty)
 {
-    if (mv < VOUT_MV_MIN) mv = VOUT_MV_MIN;
-    if (mv > VOUT_MV_MAX) mv = VOUT_MV_MAX;
-
-    uint32_t duty = (VOUT_PWM_PERIOD * (VOUT_MV_MAX - mv)) / (VOUT_MV_MAX - VOUT_MV_MIN);
+    if (duty > VOUT_PWM_PERIOD) {
+        duty = VOUT_PWM_PERIOD;
+    }
     timer_set_oc_value(VOUT_PWM_TIMER, TIM_OC1, duty);
 }
 
@@ -1768,6 +1790,8 @@ void gpio_setup(void) {
         emb_settings.k2 = 0;
         emb_settings.a = 0;
         emb_settings.b = 0;
+        emb_settings.vout_min_mv = VOUT_DEFAULT_MIN_MV;
+        emb_settings.vout_max_mv = VOUT_DEFAULT_MAX_MV;
     }
     
     if ((emb_settings.period < 10) || (emb_settings.period >= 1000)) {
@@ -1776,6 +1800,13 @@ void gpio_setup(void) {
     
     if ((emb_settings.baudrate == 0) || (emb_settings.baudrate > 1000000)) {
         emb_settings.baudrate = DEFAULT_BAUDRATE;
+    }
+
+    if ((emb_settings.vout_min_mv <= 0) ||
+        (emb_settings.vout_min_mv >= emb_settings.vout_max_mv) ||
+        (emb_settings.vout_max_mv > 20000)) {
+        emb_settings.vout_min_mv = VOUT_DEFAULT_MIN_MV;
+        emb_settings.vout_max_mv = VOUT_DEFAULT_MAX_MV;
     }
 
     battery_state.c_acc_01ua_us = 0;

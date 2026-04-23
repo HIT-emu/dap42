@@ -93,9 +93,10 @@
 #define VOUT_PWM_RCC            RCC_TIM14
 #define VOUT_PWM_RST            RST_TIM14
 #define VOUT_PWM_PERIOD         480     /* 48 MHz / 480 = 100 kHz PWM */
-/* Approximate control range for vout command. */
-#define VOUT_MV_MIN             1700
-#define VOUT_MV_MAX             5000
+/* Default real-voltage calibration for autonomous mode:
+ * duty 480 -> about 1.34 V, duty 0 -> about 3.27 V. */
+#define VOUT_DEFAULT_MIN_MV     1340
+#define VOUT_DEFAULT_MAX_MV     3270
 
 #define TARGET_BOOT_PORT        GPIOF
 #define TARGET_BOOT_PIN         GPIO1
