@@ -323,6 +323,14 @@ static long fixed_to_x1000(fixed_t value) {
     return (long)DIV_ROUND_CLOSEST((int64_t)value * 1000, FIXED_ONE);
 }
 
+static void print_vout_range(void) {
+    char str[48];
+    snprintf(str, sizeof(str), "[VRG] vrange %lu %lu",
+             emb_settings.vout_min_mv,
+             emb_settings.vout_max_mv);
+    vcdc_println(str);
+}
+
 static void print_battery_params(void) {
     char str[96];
     snprintf(str, sizeof(str),
@@ -763,6 +771,7 @@ static void console_command_parser(uint8_t *usb_command) {
     const char *help_display = "display <N> - set display mode by number";
     const char *help_calibrate = "calibrate <mV> - calibrate voltage divider";
     const char *help_vout = "vout <duty> - set DC/DC PWM duty value";
+    const char *help_vrange = "vrange [<min> <max>] - get/set output voltage range in mV";
     const char *help_auto = "auto <on|off> - enable/disable autonomous firmware mode";
     const char *help_show = "show <SEC|VOL|CUR|AHR|WHR|all> - report values";
     const char *help_hide = "hide <SEC|VOL|CUR|AHR|WHR|all> - don't report values";
@@ -785,6 +794,7 @@ static void console_command_parser(uint8_t *usb_command) {
         vcdc_println(help_maxreset);
         vcdc_println(help_calibrate);
         vcdc_println(help_vout);
+        vcdc_println(help_vrange);
         vcdc_println(help_auto);
         vcdc_println(help_show);
         vcdc_println(help_hide);
@@ -1054,6 +1064,52 @@ static void console_command_parser(uint8_t *usb_command) {
         } else {
             vcdc_println(help_vout);
         }
+    }
+    else
+    if (memcmp((char *)usb_command, "vrange", cmdlen = strlen("vrange")) == 0) {
+        if (((char *)usb_command)[cmdlen] == 0) {
+            print_vout_range();
+            return;
+        }
+
+        if (((char *)usb_command)[cmdlen] != ' ') {
+            vcdc_println(help_vrange);
+            return;
+        }
+
+        char *ptr = (char *)&usb_command[cmdlen + 1];
+        char *endptr;
+        long min_mv;
+        long max_mv;
+
+        min_mv = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_vrange);
+            return;
+        }
+        ptr = endptr;
+
+        max_mv = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            vcdc_println(help_vrange);
+            return;
+        }
+
+        if ((min_mv <= 0) || (max_mv <= min_mv) || (max_mv > 20000)) {
+            vcdc_println(help_vrange);
+            return;
+        }
+
+        emb_settings.vout_min_mv = (uint32_t)min_mv;
+        emb_settings.vout_max_mv = (uint32_t)max_mv;
+        save_settings();
+        vcdc_println("[INF] Vout range saved");
+
+        if (battery_auto_enabled) {
+            set_real_voltage();
+        }
+
+        print_vout_range();
     }
     else
     if (memcmp((char *)usb_command, "auto ", cmdlen = strlen("auto ")) == 0) {
