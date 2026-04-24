@@ -1,7 +1,19 @@
 /*
  * Copyright (c) 2016, Devan Lai
  * Copyright (c) 2019, Unwired Devices LLC <info@unwds.com>
- * Copyright (c) 2026, Yandex LLC <olartam@yandex-team.ru>
+ * Copyright (c) 2026, Oleg Artamonov <oleg@olegart.ru>
+ * 
+ * Copyright (c) 2026, Egor Mikerin <egor4kus@yandex.ru>
+ * Copyright (c) 2026, Arkady Pavlov <bylotonix@gmail.com>
+ * Copyright (c) 2026, Raul Alimbekov <raulalimbekov@gmail.com>
+ * Copyright (c) 2026, Victoria Patokova <vpatokova@gmail.com>
+ * Copyright (c) 2026, Iaroslav Muravev <yaroslav.muravev.work@yandex.ru>
+ * Copyright (c) 2026, Igor Kim <kimigor157@gmail.com>
+ * Copyright (c) 2026, Naum Novikov <naumnovikov.it@gmail.com>
+ * Copyright (c) 2026, Ilya Simonov <simalin2020@gmail.com>
+ * Copyright (c) 2026, Dmitry Malinitskiy <malinitckiydimitry@gmail.com>
+ * Copyright (c) 2026, Ivan Vetlugin <ivanvet31@ivanvet31.ru>
+ * Copyright (c) 2026, Igor Dobritsa <igordobrica60@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software
  * for any purpose with or without fee is hereby granted, provided
